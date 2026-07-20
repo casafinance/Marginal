@@ -334,6 +334,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         Search
       </button>
+      <button class="btn ghost" id="setDefaultBtn" hidden title="Make Marginal your default PDF app">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        Set as default
+      </button>
       <button class="btn" id="openBtn" title="Open a PDF (⌘/Ctrl+O)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Open
@@ -2105,6 +2109,18 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
         }
       } catch (_) { /* offline or no update: ignore */ }
     })();
+    // "Set as default" — opens Windows' own "Open with" dialog (per-user, no admin,
+    // and the resulting choice is fully trusted by Windows, unlike a registry hack).
+    const btn = document.getElementById("setDefaultBtn");
+    if (btn) {
+      btn.hidden = false;
+      btn.onclick = async () => {
+        try {
+          await T.core.invoke("set_default_pdf_app");
+          toast("Pick Marginal and check “Always use this app,” then click OK.");
+        } catch (e) { toast("Couldn't open that dialog: " + (e && e.message ? e.message : e)); }
+      };
+    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
