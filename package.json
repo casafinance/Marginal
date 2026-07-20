@@ -1,0 +1,12 @@
+{
+  "name": "marginal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marginal — a fast, local PDF viewer and editor.",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
