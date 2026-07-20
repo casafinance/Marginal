@@ -125,6 +125,10 @@ button{font-family:inherit}
 .range{display:flex;align-items:center;gap:8px}
 input[type=range]{accent-color:var(--brand);width:110px}
 .sizeval{font-family:var(--font-mono);font-size:12px;color:var(--text-soft);width:34px;text-align:right}
+.fbtn{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fff;
+  color:var(--text);cursor:pointer;font-size:14px;line-height:1;display:grid;place-items:center;font-family:var(--font-serif,Georgia,serif)}
+.fbtn:hover{background:var(--surface-2,#f4f4f6)}
+.fbtn[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
 
 .tb-right{display:flex;align-items:center;gap:10px;margin-left:auto}
 .zoom{display:flex;align-items:center;gap:2px;background:var(--panel-soft);
@@ -724,9 +728,36 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       r.oninput = () => { v.textContent = r.value + unit; setSelSize(a, +r.value); };
       box.append(l2, r, v); c.appendChild(box);
     }
+
+    if (a.type === "text") {
+      const parts = fontParts(a.font);
+      let bold = parts.bold, ital = parts.ital;
+      const box = document.createElement("div"); box.className = "ctl";
+      const l3 = document.createElement("span"); l3.className = "lbl"; l3.textContent = "Style";
+      const bBtn = document.createElement("button"); bBtn.className = "fbtn"; bBtn.textContent = "B"; bBtn.style.fontWeight = "700";
+      bBtn.title = "Bold"; bBtn.setAttribute("aria-pressed", String(bold));
+      const iBtn = document.createElement("button"); iBtn.className = "fbtn"; iBtn.textContent = "I"; iBtn.style.fontStyle = "italic";
+      iBtn.title = "Italic"; iBtn.setAttribute("aria-pressed", String(ital));
+      bBtn.onclick = () => { bold = !bold; bBtn.setAttribute("aria-pressed", String(bold)); setSelFont(a, bold, ital); };
+      iBtn.onclick = () => { ital = !ital; iBtn.setAttribute("aria-pressed", String(ital)); setSelFont(a, bold, ital); };
+      box.append(l3, bBtn, iBtn); c.appendChild(box);
+    }
   }
 
   function setSelColor(a, col) { pushUndo(); a.color = col; layout(); }
+
+  // Split a base-14 font key into family + bold/italic flags, and rebuild it.
+  function fontParts(key) {
+    key = key || "Helvetica";
+    const base = /Times/.test(key) ? "Times" : /Courier/.test(key) ? "Courier" : "Helvetica";
+    return { base, bold: /Bold/.test(key), ital: /Italic|Oblique/.test(key) };
+  }
+  function makeFontKey(base, bold, ital) {
+    if (base === "Times") return bold && ital ? "Times-BoldItalic" : bold ? "Times-Bold" : ital ? "Times-Italic" : "Times-Roman";
+    if (base === "Courier") return bold && ital ? "Courier-BoldOblique" : bold ? "Courier-Bold" : ital ? "Courier-Oblique" : "Courier";
+    return bold && ital ? "Helvetica-BoldOblique" : bold ? "Helvetica-Bold" : ital ? "Helvetica-Oblique" : "Helvetica";
+  }
+  function setSelFont(a, bold, ital) { pushUndo(); a.font = makeFontKey(fontParts(a.font).base, bold, ital); layout(); }
   function setSelSize(a, val) {
     pushUndo();
     if (a.type === "text") a.size = val;
@@ -816,6 +847,10 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
           const sp = e.target && e.target.closest ? e.target.closest("span") : null;
           if (sp && textDiv.contains(sp) && sp.textContent && sp.textContent.trim()) {
             e.preventDefault(); e.stopPropagation();
+            if (hasUnsupportedGlyph(sp.textContent)) {
+              toast("That mark can't be edited — it's drawn with a symbol the exported PDF can't reproduce.");
+              return;
+            }
             editExistingText(rec, sp);
           }
         }
@@ -1058,6 +1093,14 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       if (best) return "#" + [best[0], best[1], best[2]].map((v) => v.toString(16).padStart(2, "0")).join("");
     } catch (_) {}
     return "#ffffff";
+  }
+
+  // The exported PDF can only draw Helvetica/Times/Courier, which cover roughly the
+  // Latin-1 range. Checkmarks, bullets, and other symbols from custom/dingbat fonts
+  // are usually stored as characters outside that range — flag them before we touch them.
+  function hasUnsupportedGlyph(str) {
+    for (let i = 0; i < str.length; i++) { if (str.codePointAt(i) > 0xFF) return true; }
+    return false;
   }
 
   // ---- checkbox ----
@@ -1425,6 +1468,16 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       if (mod && e.code === "KeyO") { e.preventDefault(); pickFile(); return; }
       if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
       if (mod && e.code === "KeyZ") { e.preventDefault(); undo(); return; }
+      if (mod && (e.code === "KeyB" || e.code === "KeyI")) {
+        const a = current();
+        if (a && a.type === "text") {
+          e.preventDefault();
+          const p = fontParts(a.font);
+          setSelFont(a, e.code === "KeyB" ? !p.bold : p.bold, e.code === "KeyI" ? !p.ital : p.ital);
+          buildContext();
+          return;
+        }
+      }
       if (mod && (e.code === "Equal" || e.code === "NumpadAdd")) { e.preventDefault(); setZoom(S.zoom * 1.15); return; }
       if (mod && (e.code === "Minus" || e.code === "NumpadSubtract")) { e.preventDefault(); setZoom(S.zoom / 1.15); return; }
       if (!S.pdf) return;
@@ -1458,6 +1511,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       return fontCache[key];
     };
     const pages = pdf.getPages();
+    let skippedText = 0;
 
       for (const a of S.annots) {
         const pg = pages[a.page]; if (!pg) continue;
@@ -1489,8 +1543,10 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
           const rotDeg = rot === 0 ? 0 : (360 - rot);
           lines.forEach((ln, i) => {
             const ox = anchor.x + ux * lineH * i, oy = anchor.y + uy * lineH * i;
-            pg.drawText(ln, { x: ox, y: oy, size: a.size, font, color: hex(rgb, a.color),
-              rotate: PDFLib.degrees(rotDeg) });
+            try {
+              pg.drawText(ln, { x: ox, y: oy, size: a.size, font, color: hex(rgb, a.color),
+                rotate: PDFLib.degrees(rotDeg) });
+            } catch (_) { skippedText++; }   // a character the exported font can't draw — skip, don't abort
           });
         } else if (a.type === "check") {
           const col = hex(rgb, a.color);
@@ -1514,7 +1570,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
           pg.drawImage(img, { x, y, width: w, height: h });
         }
       }
-      return await pdf.save({ useObjectStreams: false });
+      return { bytes: await pdf.save({ useObjectStreams: false }), skippedText };
   }
 
   const outName = () => S.fileName.replace(/\.pdf$/i, "") + " (edited).pdf";
@@ -1523,10 +1579,12 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     if (!S.bytes) return;
     try {
       busy(true, "Preparing your PDF…");
-      const out = await buildPdfBytes();
-      downloadBytes(out, outName());
+      const { bytes, skippedText } = await buildPdfBytes();
+      downloadBytes(bytes, outName());
       S.dirty = false; $("fileName").classList.remove("dirty");
-      toast("Saved " + outName());
+      toast(skippedText
+        ? "Saved " + outName() + " — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
+        : "Saved " + outName());
     } catch (err) {
       console.error(err);
       toast("Something went wrong while saving.");
@@ -1537,13 +1595,14 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     if (!S.bytes) return;
     try {
       busy(true, "Building preview…");
-      const out = await buildPdfBytes();
-      const blob = new Blob([out], { type: "application/pdf" });
+      const { bytes, skippedText } = await buildPdfBytes();
+      const blob = new Blob([bytes], { type: "application/pdf" });
       if (S._previewUrl) URL.revokeObjectURL(S._previewUrl);
       S._previewUrl = URL.createObjectURL(blob);
-      S._previewBytes = out;
+      S._previewBytes = bytes;
       $("previewFrame").src = S._previewUrl;
       $("previewModal").hidden = false;
+      if (skippedText) toast(skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped.");
     } catch (err) {
       console.error(err);
       toast("Couldn't build the preview.");
