@@ -30,6 +30,38 @@ fn take_opened_pdf(state: tauri::State<OpenedFile>) -> Option<serde_json::Value>
     read_pdf(&path)
 }
 
+/// Opens Windows' own "How do you want to open this file?" dialog, scoped to .pdf.
+/// This is the one supported way to change the default app without admin rights —
+/// Windows protects the default-app registry keys with a hidden verification hash,
+/// so writing them directly doesn't stick; only a choice made through this dialog
+/// (or Settings) produces a hash Windows trusts. The dialog just needs *a* .pdf path
+/// to anchor to, so we point it at whatever's open, or a tiny placeholder if nothing is.
+#[tauri::command]
+fn set_default_pdf_app(path: Option<String>) -> Result<(), String> {
+    let anchor = match path {
+        Some(p) if std::path::Path::new(&p).exists() => p,
+        _ => {
+            let tmp = std::env::temp_dir().join("Marginal-SetDefault.pdf");
+            if !tmp.exists() {
+                std::fs::write(&tmp, b"%PDF-1.4\n%%EOF").map_err(|e| e.to_string())?;
+            }
+            tmp.to_string_lossy().into_owned()
+        }
+    };
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32.exe")
+            .args(["shell32.dll,OpenAs_RunDLL", &anchor])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = anchor; // no-op on other platforms
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Path of the PDF this launch was asked to open (double-click in Explorer, etc.)
@@ -51,7 +83,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(OpenedFile(Mutex::new(launched_with)))
-        .invoke_handler(tauri::generate_handler![take_opened_pdf])
+        .invoke_handler(tauri::generate_handler![take_opened_pdf, set_default_pdf_app])
         .run(tauri::generate_context!())
         .expect("error while running Marginal");
 }
