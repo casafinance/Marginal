@@ -294,6 +294,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .preview-sheet{width:min(940px,96vw);height:92vh;display:flex;flex-direction:column}
 .preview-frame{flex:1;width:100%;border:none;background:#525659;border-radius:0 0 18px 18px}
 
+.default-sheet{width:min(440px,92vw)}
+.default-body{padding:4px 22px 22px}
+.default-body p{margin:0 0 10px;color:var(--text-soft);font-size:13.5px;line-height:1.5}
+.default-body ol{margin:0 0 16px;padding-left:20px;color:var(--text);font-size:13.5px;line-height:1.7}
+.default-alt{margin-top:14px !important;font-size:12.5px !important;color:var(--text-soft)}
+.linklike{background:none;border:none;padding:0;color:var(--brand);text-decoration:underline;cursor:pointer;font-size:inherit;font-family:inherit}
+.linklike:hover{opacity:.8}
+
 /* ---------- Search ---------- */
 .ocrstatus{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;
   background:var(--brand-weak);color:var(--brand);font-size:12.5px;font-weight:600;white-space:nowrap}
@@ -348,6 +356,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <button class="btn ghost" id="searchBtn" disabled title="Find text in the document (⌘/Ctrl+F)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         Search
+      </button>
+      <button class="btn ghost" id="checkUpdatesBtn" hidden title="Check for a newer version of Marginal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Check for updates
       </button>
       <button class="btn ghost" id="setDefaultBtn" hidden title="Make Marginal your default PDF app">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -470,6 +482,32 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy"><div class="card"><div class="spinner"></div><div class="msg" id="busyMsg"></div></div></div>
+
+<div class="modal" id="defaultAppModal" hidden>
+  <div class="sheet default-sheet">
+    <div class="sheet-head">
+      <h2>Set Marginal as your default PDF app</h2>
+      <button class="iconbtn" id="defaultAppClose" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="default-body">
+      <p>Windows keeps this setting behind its own Settings page — here's the fastest way there:</p>
+      <ol>
+        <li>Click <strong>Open Settings</strong> below.</li>
+        <li>In the search box at the top, type <strong>.pdf</strong></li>
+        <li>Click the app currently listed, then choose <strong>Marginal</strong>.</li>
+      </ol>
+      <button class="btn primary" id="openDefaultSettingsBtn" style="width:100%;justify-content:center;margin-top:4px">
+        Open Settings
+      </button>
+      <p class="default-alt">
+        Or <button class="linklike" id="tryQuickWayBtn">try the quick way instead</button> —
+        a system dialog that sometimes lets you pick Marginal right away (not guaranteed on every setup).
+      </p>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="previewModal" hidden>
   <div class="sheet preview-sheet">
@@ -1497,7 +1535,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     window.addEventListener("keydown", (e) => {
       const ae = document.activeElement;
       const typing = ae && (ae.isContentEditable || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden;
+      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyF") {
         e.preventDefault();
@@ -1507,6 +1545,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       if (e.code === "Escape") {
         if (!$("signModal").hidden) { closeSignModal(); return; }
         if (!$("previewModal").hidden) { closePreview(); return; }
+        if (!$("defaultAppModal").hidden) { $("defaultAppModal").hidden = true; return; }
         if (!$("searchBar").hidden) { closeSearch(); return; }
       }
       // While typing in a field or with a modal open, let the field handle keys normally.
@@ -2164,6 +2203,29 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
   };
 
   // ---- Desktop (Tauri) integration: file-open + auto-update. Runs only in the app. ----
+  async function checkForUpdates(opts) {
+    opts = opts || {};
+    const T = window.__TAURI__;
+    if (!T) return;
+    try {
+      const upd = T.updater;
+      if (!upd || !upd.check) { if (opts.manual) toast("The updater isn't available in this build."); return; }
+      if (opts.manual) toast("Checking for updates…");
+      const update = await upd.check();
+      if (update && update.available) {
+        if (opts.manual) toast("Downloading " + (update.version ? "version " + update.version : "the update") + "…");
+        await update.downloadAndInstall();
+        if (T.process && T.process.relaunch) await T.process.relaunch();
+      } else if (opts.manual) {
+        toast("You're already on the latest version.");
+      }
+    } catch (e) {
+      // Surfaced instead of swallowed: a silent updater failure is worse than a visible one.
+      console.error("Update check failed:", e);
+      if (opts.manual) toast("Couldn't check for updates: " + (e && e.message ? e.message : e));
+    }
+  }
+
   function initDesktop() {
     const T = window.__TAURI__;
     if (!T) return;                                  // in a normal browser: do nothing
@@ -2172,26 +2234,25 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     try { T.core.invoke("take_opened_pdf").then(toU8).catch(() => {}); } catch (_) {}
     // a PDF opened while we're already running (default-handler, second launch)
     try { T.event.listen("open-pdf", (e) => toU8(e.payload)); } catch (_) {}
-    // check for updates on launch, install silently, relaunch
-    (async () => {
-      try {
-        const upd = T.updater; if (!upd || !upd.check) return;
-        const update = await upd.check();
-        if (update && update.available) {
-          await update.downloadAndInstall();
-          if (T.process && T.process.relaunch) await T.process.relaunch();
-        }
-      } catch (_) { /* offline or no update: ignore */ }
-    })();
-    // "Set as default" — opens Windows' own "Open with" dialog (per-user, no admin,
-    // and the resulting choice is fully trusted by Windows, unlike a registry hack).
+    checkForUpdates();   // quiet check on launch — only speaks up if it finds something (or now, if it errors)
+    const upBtn = document.getElementById("checkUpdatesBtn");
+    if (upBtn) { upBtn.hidden = false; upBtn.onclick = () => checkForUpdates({ manual: true }); }
+    // "Set as default" — leads with Windows Settings (the reliable path); the old
+    // direct dialog trick is offered underneath as a "quick way" that isn't guaranteed
+    // once .pdf already has a handler (which it almost always does).
     const btn = document.getElementById("setDefaultBtn");
     if (btn) {
       btn.hidden = false;
-      btn.onclick = async () => {
+      btn.onclick = () => { $("defaultAppModal").hidden = false; };
+      $("defaultAppClose").onclick = () => { $("defaultAppModal").hidden = true; };
+      $("openDefaultSettingsBtn").onclick = async () => {
+        try { await T.core.invoke("open_default_apps_settings"); }
+        catch (e) { toast("Couldn't open Settings: " + (e && e.message ? e.message : e)); }
+      };
+      $("tryQuickWayBtn").onclick = async () => {
         try {
           await T.core.invoke("set_default_pdf_app");
-          toast("Pick Marginal and check “Always use this app,” then click OK.");
+          toast("If a dialog appeared, pick Marginal and check “Always use this app.”");
         } catch (e) { toast("Couldn't open that dialog: " + (e && e.message ? e.message : e)); }
       };
     }
