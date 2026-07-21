@@ -31,11 +31,11 @@ fn take_opened_pdf(state: tauri::State<OpenedFile>) -> Option<serde_json::Value>
 }
 
 /// Opens Windows' own "How do you want to open this file?" dialog, scoped to .pdf.
-/// This is the one supported way to change the default app without admin rights —
-/// Windows protects the default-app registry keys with a hidden verification hash,
-/// so writing them directly doesn't stick; only a choice made through this dialog
-/// (or Settings) produces a hash Windows trusts. The dialog just needs *a* .pdf path
-/// to anchor to, so we point it at whatever's open, or a tiny placeholder if nothing is.
+/// NOTE: this reliably works for a file type Windows has *no* handler for yet, but
+/// .pdf almost always already has one (Edge, Adobe, etc.), and on some Windows builds
+/// this trick silently does nothing — or reopens the current default — once a handler
+/// already exists. Kept as a "quick way" that sometimes works; Settings (below) is the
+/// dependable path and what the app leads with.
 #[tauri::command]
 fn set_default_pdf_app(path: Option<String>) -> Result<(), String> {
     let anchor = match path {
@@ -62,6 +62,23 @@ fn set_default_pdf_app(path: Option<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// Opens Windows Settings straight to the Default Apps page, via the documented
+/// `ms-settings:defaultapps` URI. This is the reliable path: it gets someone to the
+/// right screen every time; the last couple of clicks (searching ".pdf", picking
+/// Marginal) still have to be theirs, since that's the same protection that blocks
+/// any silent registry trick from sticking.
+#[tauri::command]
+fn open_default_apps_settings() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", "ms-settings:defaultapps"])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Path of the PDF this launch was asked to open (double-click in Explorer, etc.)
@@ -83,7 +100,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(OpenedFile(Mutex::new(launched_with)))
-        .invoke_handler(tauri::generate_handler![take_opened_pdf, set_default_pdf_app])
+        .invoke_handler(tauri::generate_handler![take_opened_pdf, set_default_pdf_app, open_default_apps_settings])
         .run(tauri::generate_context!())
         .expect("error while running Marginal");
 }
