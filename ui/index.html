@@ -87,6 +87,21 @@ button{font-family:inherit}
 .btn:focus-visible,.tool:focus-visible,.zbtn:focus-visible{
   outline:2px solid var(--brand);outline-offset:2px}
 
+/* split download button + its dropdown */
+.split{position:relative;display:flex;align-items:stretch}
+.split #downloadBtn{border-top-right-radius:0;border-bottom-right-radius:0}
+.split .caret{border-top-left-radius:0;border-bottom-left-radius:0;border-left:1px solid rgba(255,255,255,.35);
+  padding-left:7px;padding-right:7px;margin-left:-1px}
+.split .caret svg{width:14px;height:14px}
+.menu{position:absolute;top:calc(100% + 6px);right:0;z-index:60;min-width:248px;
+  background:var(--panel,#fff);border:1px solid var(--line,#e3e3e8);border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.14);padding:6px;display:flex;flex-direction:column;gap:2px}
+.menu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;
+  padding:8px 10px;border:0;background:transparent;border-radius:7px;cursor:pointer;width:100%}
+.menu button:hover{background:var(--panel-soft,#f4f4f6)}
+.menu button strong{font-size:13px;font-weight:600;color:var(--text)}
+.menu button span{font-size:11px;color:var(--text-soft)}
+
 /* ---------- Toolbar ---------- */
 .toolbar{
   height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
@@ -342,14 +357,31 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Open
       </button>
+      <button class="btn" id="printBtn" disabled title="Print (⌘/Ctrl+P)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
       <button class="btn" id="previewBtn" disabled title="Preview the finished PDF">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
         Preview
       </button>
-      <button class="btn primary" id="downloadBtn" disabled title="Download edited PDF (⌘/Ctrl+S)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        Download
-      </button>
+      <div class="split">
+        <button class="btn primary" id="downloadBtn" disabled title="Download edited PDF (⌘/Ctrl+S)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Download
+        </button>
+        <button class="btn primary caret" id="downloadMenuBtn" disabled aria-haspopup="true" aria-expanded="false" title="More download options">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="menu" id="downloadMenu" hidden role="menu">
+          <button id="dlAsIs" role="menuitem">
+            <strong>Download</strong><span>Keeps fillable form fields editable</span>
+          </button>
+          <button id="dlFlat" role="menuitem">
+            <strong>Download flattened</strong><span>Locks form fields into static content</span>
+          </button>
+        </div>
+      </div>
       <input type="file" id="fileInput" accept="application/pdf,.pdf" class="hidden">
     </div>
   </header>
@@ -583,8 +615,16 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     $("openBtn").onclick = pickFile;
     $("dropOpenBtn").onclick = pickFile;
     $("fileInput").onchange = (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ""; };
-    $("downloadBtn").onclick = doDownload;
+    $("downloadBtn").onclick = () => doDownload();
+    $("dlAsIs").onclick = () => { closeDownloadMenu(); doDownload(); };
+    $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
+    $("downloadMenuBtn").onclick = (e) => { e.stopPropagation(); toggleDownloadMenu(); };
+    document.addEventListener("pointerdown", (e) => {
+      const m = $("downloadMenu");
+      if (!m.hidden && !$("downloadMenu").contains(e.target) && e.target !== $("downloadMenuBtn") && !$("downloadMenuBtn").contains(e.target)) closeDownloadMenu();
+    });
     $("previewBtn").onclick = doPreview;
+    $("printBtn").onclick = () => doPreview({ print: true });
     $("previewClose").onclick = closePreview;
     $("previewDownload").onclick = () => { if (S._previewBytes) downloadBytes(S._previewBytes, outName()); };
     $("undoBtn").onclick = undo;
@@ -810,7 +850,9 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       $("fileName").textContent = S.fileName;
       $("fileName").classList.remove("dirty");
       $("downloadBtn").disabled = false;
+      $("downloadMenuBtn").disabled = false;
       $("previewBtn").disabled = false;
+      $("printBtn").disabled = false;
       $("searchBtn").disabled = false;
       $("empty").classList.add("hidden");
       await buildPages();
@@ -1471,6 +1513,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       if (typing || modalOpen) return;
       if (mod && e.code === "KeyO") { e.preventDefault(); pickFile(); return; }
       if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
+      if (mod && e.code === "KeyP") { e.preventDefault(); if (!$("printBtn").disabled) doPreview({ print: true }); return; }
       if (mod && e.code === "KeyZ") { e.preventDefault(); undo(); return; }
       if (mod && (e.code === "KeyB" || e.code === "KeyI")) {
         const a = current();
@@ -1497,9 +1540,16 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
   // ============================================================
   // Export (flatten edits into a PDF) + Preview
   // ============================================================
-  async function buildPdfBytes() {
+  async function buildPdfBytes(opts) {
+    opts = opts || {};
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
     const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+    // "Download flattened": bake the PDF's interactive form fields (fillable boxes,
+    // checkboxes, dropdowns) into static page content so nothing stays editable.
+    // Done before our own marks so those still sit on top.
+    if (opts.flatten) {
+      try { const form = pdf.getForm(); form.flatten(); } catch (_) { /* no form, or nothing to flatten */ }
+    }
     const STD = {
       "Helvetica": StandardFonts.Helvetica, "Helvetica-Bold": StandardFonts.HelveticaBold,
       "Helvetica-Oblique": StandardFonts.HelveticaOblique, "Helvetica-BoldOblique": StandardFonts.HelveticaBoldOblique,
@@ -1577,39 +1627,63 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       return { bytes: await pdf.save({ useObjectStreams: false }), skippedText };
   }
 
-  const outName = () => S.fileName.replace(/\.pdf$/i, "") + " (edited).pdf";
+  function toggleDownloadMenu() {
+    const m = $("downloadMenu");
+    if (m.hidden) { m.hidden = false; $("downloadMenuBtn").setAttribute("aria-expanded", "true"); }
+    else closeDownloadMenu();
+  }
+  function closeDownloadMenu() {
+    $("downloadMenu").hidden = true;
+    $("downloadMenuBtn").setAttribute("aria-expanded", "false");
+  }
 
-  async function doDownload() {
+  const outName = (flat) => S.fileName.replace(/\.pdf$/i, "") + (flat ? " (flattened).pdf" : " (edited).pdf");
+
+  async function doDownload(opts) {
+    opts = opts || {};
     if (!S.bytes) return;
     try {
-      busy(true, "Preparing your PDF…");
-      const { bytes, skippedText } = await buildPdfBytes();
-      downloadBytes(bytes, outName());
+      busy(true, opts.flatten ? "Flattening your PDF…" : "Preparing your PDF…");
+      const { bytes, skippedText } = await buildPdfBytes(opts);
+      const name = outName(opts.flatten);
+      downloadBytes(bytes, name);
       S.dirty = false; $("fileName").classList.remove("dirty");
       toast(skippedText
-        ? "Saved " + outName() + " — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
-        : "Saved " + outName());
+        ? "Saved " + name + " — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
+        : "Saved " + name);
     } catch (err) {
       console.error(err);
       toast("Something went wrong while saving.");
     } finally { busy(false); }
   }
 
-  async function doPreview() {
+  async function doPreview(opts) {
+    opts = opts || {};
     if (!S.bytes) return;
     try {
-      busy(true, "Building preview…");
+      busy(true, opts.print ? "Preparing to print…" : "Building preview…");
       const { bytes, skippedText } = await buildPdfBytes();
       const blob = new Blob([bytes], { type: "application/pdf" });
       if (S._previewUrl) URL.revokeObjectURL(S._previewUrl);
       S._previewUrl = URL.createObjectURL(blob);
       S._previewBytes = bytes;
-      $("previewFrame").src = S._previewUrl;
+      const frame = $("previewFrame");
+      if (opts.print) {
+        // Hand the flattened PDF to the browser's own print dialog. The preview modal
+        // stays open underneath as a visible fallback — if a browser blocks the automatic
+        // print() call, the person can still print from the visible embed themselves.
+        frame.onload = () => {
+          frame.onload = null;
+          try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+          catch (e) { console.error(e); toast("Couldn't open the print dialog automatically — use ⌘/Ctrl+P on the preview."); }
+        };
+      }
+      frame.src = S._previewUrl;
       $("previewModal").hidden = false;
       if (skippedText) toast(skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped.");
     } catch (err) {
       console.error(err);
-      toast("Couldn't build the preview.");
+      toast(opts.print ? "Couldn't prepare the file for printing." : "Couldn't build the preview.");
     } finally { busy(false); }
   }
 
