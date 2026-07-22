@@ -141,6 +141,9 @@ button{font-family:inherit}
 .range{display:flex;align-items:center;gap:8px}
 input[type=range]{accent-color:var(--brand);width:110px}
 .sizeval{font-family:var(--font-mono);font-size:12px;color:var(--text-soft);width:34px;text-align:right}
+.sizeinput{width:56px;font-family:var(--font-mono);font-size:12.5px;color:var(--text);
+  border:1px solid var(--line,#e3e3e8);border-radius:6px;padding:4px 6px;background:#fff}
+.sizeinput:focus{outline:2px solid var(--brand);outline-offset:1px}
 .fbtn{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fff;
   color:var(--text);cursor:pointer;font-size:14px;line-height:1;display:grid;place-items:center;font-family:var(--font-serif,Georgia,serif)}
 .fbtn:hover{background:var(--surface-2,#f4f4f6)}
@@ -707,6 +710,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
   function buildContext() {
     const c = $("context");
     c.innerHTML = "";
+    if (editingA) { buildEditingEditor(c, editingA, editingEl); return; }
     if (S.tool === "move") {
       const a = current();
       if (a) { buildSelectionEditor(c, a); return; }
@@ -744,17 +748,51 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     custom.appendChild(ci); sw.appendChild(custom);
     wrap.append(lbl, sw); c.appendChild(wrap);
 
-    // size slider
+    // size control
     if (p.size) {
-      const [mn, mx] = p.size;
-      const box = document.createElement("div"); box.className = "ctl range";
-      const l2 = document.createElement("span"); l2.className = "lbl"; l2.textContent = p.sizeLabel;
-      const r = document.createElement("input"); r.type = "range"; r.min = mn; r.max = mx; r.value = S.size[fam];
-      const unit = fam === "text" ? "pt" : "px";
-      const v = document.createElement("span"); v.className = "sizeval"; v.textContent = S.size[fam] + unit;
-      r.oninput = () => { S.size[fam] = +r.value; v.textContent = r.value + unit; applySizeToSelection(+r.value); };
-      box.append(l2, r, v); c.appendChild(box);
+      if (fam === "text") {
+        c.appendChild(buildFontSizeControl(S.size.text, (n) => {
+          S.size.text = n; applySizeToSelection(n);
+        }));
+      } else {
+        const [mn, mx] = p.size;
+        const box = document.createElement("div"); box.className = "ctl range";
+        const l2 = document.createElement("span"); l2.className = "lbl"; l2.textContent = p.sizeLabel;
+        const r = document.createElement("input"); r.type = "range"; r.min = mn; r.max = mx; r.value = S.size[fam];
+        const unit = "px";
+        const v = document.createElement("span"); v.className = "sizeval"; v.textContent = S.size[fam] + unit;
+        r.oninput = () => { S.size[fam] = +r.value; v.textContent = r.value + unit; applySizeToSelection(+r.value); };
+        box.append(l2, r, v); c.appendChild(box);
+      }
     }
+  }
+
+  // Font-size control: a dropdown of common sizes that also accepts a typed custom value
+  // (an <input list=...> combo — shows presets, but you can just type any number too).
+  const FONT_SIZE_PRESETS = [6, 7, 8, 9, 10, 10.5, 11, 12, 14, 15, 16, 18, 20, 24, 28, 32, 36, 40, 48, 60, 72];
+  let _fsSeq = 0;
+  const round1 = (n) => Math.round(n * 10) / 10;
+  function buildFontSizeControl(value, onChange) {
+    const box = document.createElement("div"); box.className = "ctl";
+    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Size";
+    const listId = "fsPresets" + (_fsSeq++);
+    const dl = document.createElement("datalist"); dl.id = listId;
+    FONT_SIZE_PRESETS.forEach((s) => { const o = document.createElement("option"); o.value = String(s); dl.appendChild(o); });
+    const inp = document.createElement("input");
+    inp.type = "number"; inp.className = "sizeinput"; inp.min = "1"; inp.max = "400"; inp.step = "0.5";
+    inp.setAttribute("list", listId);
+    inp.value = round1(value);
+    const commit = () => {
+      let n = parseFloat(inp.value);
+      if (!isFinite(n) || n <= 0) { inp.value = round1(value); return; }
+      n = Math.min(400, Math.max(1, n));
+      inp.value = round1(n);
+      onChange(n);
+    };
+    inp.addEventListener("change", commit);
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); inp.blur(); } });
+    box.append(lbl, inp, dl);
+    return box;
   }
 
   function markSwatches(container, col) {
@@ -800,16 +838,19 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
       wrap.append(lbl, sw); c.appendChild(wrap);
     }
 
-    const rg = SEL_SIZE_RANGE[a.type];
-    if (rg) {
-      const cur = a.type === "text" ? a.size : a.w;
-      const box = document.createElement("div"); box.className = "ctl range";
-      const l2 = document.createElement("span"); l2.className = "lbl"; l2.textContent = "Size";
-      const r = document.createElement("input"); r.type = "range"; r.min = rg[0]; r.max = rg[1]; r.step = 1; r.value = Math.round(cur);
-      const unit = a.type === "text" ? "pt" : "px";
-      const v = document.createElement("span"); v.className = "sizeval"; v.textContent = Math.round(cur) + unit;
-      r.oninput = () => { v.textContent = r.value + unit; setSelSize(a, +r.value); };
-      box.append(l2, r, v); c.appendChild(box);
+    if (a.type === "text") {
+      c.appendChild(buildFontSizeControl(a.size, (n) => setSelSize(a, n)));
+    } else {
+      const rg = SEL_SIZE_RANGE[a.type];
+      if (rg) {
+        const cur = a.w;
+        const box = document.createElement("div"); box.className = "ctl range";
+        const l2 = document.createElement("span"); l2.className = "lbl"; l2.textContent = "Size";
+        const r = document.createElement("input"); r.type = "range"; r.min = rg[0]; r.max = rg[1]; r.step = 1; r.value = Math.round(cur);
+        const v = document.createElement("span"); v.className = "sizeval"; v.textContent = Math.round(cur) + "px";
+        r.oninput = () => { v.textContent = r.value + "px"; setSelSize(a, +r.value); };
+        box.append(l2, r, v); c.appendChild(box);
+      }
     }
 
     if (a.type === "text") {
@@ -828,6 +869,66 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
   }
 
   function setSelColor(a, col) { pushUndo(); a.color = col; layout(); }
+
+  // Controls shown while actively typing into a text mark (Add text / Edit text).
+  // Changes apply straight to the in-progress mark and its live DOM node — never
+  // through layout(), which would rebuild the DOM and kill the typing cursor.
+  function buildEditingEditor(c, a, el) {
+    const tag = document.createElement("span");
+    tag.className = "lbl"; tag.style.opacity = ".8"; tag.style.marginRight = "6px";
+    tag.textContent = "Editing text";
+    c.appendChild(tag);
+
+    const pal = PALETTES.text;
+    const wrap = document.createElement("div"); wrap.className = "ctl";
+    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Color";
+    const sw = document.createElement("div"); sw.className = "swatches";
+    pal.colors.forEach((col) => {
+      const b = document.createElement("button"); b.className = "swatch"; b.style.background = col;
+      b.setAttribute("aria-pressed", String(col.toLowerCase() === (a.color || "").toLowerCase())); b.title = col;
+      b.onclick = () => { a.color = col; el.style.color = col; markSwatches(sw, col); markDirty(); refocusEditing(); };
+      sw.appendChild(b);
+    });
+    const custom = document.createElement("label"); custom.className = "swatch custom"; custom.title = "Custom color";
+    const ci = document.createElement("input"); ci.type = "color"; ci.value = toHex(a.color || "#000000");
+    ci.oninput = () => { a.color = ci.value; el.style.color = ci.value; markSwatches(sw, ci.value); markDirty(); };
+    ci.addEventListener("change", refocusEditing);
+    custom.appendChild(ci); sw.appendChild(custom);
+    wrap.append(lbl, sw); c.appendChild(wrap);
+
+    c.appendChild(buildFontSizeControl(a.size, (n) => {
+      a.size = n; el.style.fontSize = n * S.zoom + "px"; markDirty(); refocusEditing();
+    }));
+
+    const parts = fontParts(a.font);
+    let bold = parts.bold, ital = parts.ital;
+    const box = document.createElement("div"); box.className = "ctl";
+    const l3 = document.createElement("span"); l3.className = "lbl"; l3.textContent = "Style";
+    const bBtn = document.createElement("button"); bBtn.className = "fbtn"; bBtn.textContent = "B"; bBtn.style.fontWeight = "700";
+    bBtn.title = "Bold"; bBtn.setAttribute("aria-pressed", String(bold));
+    const iBtn = document.createElement("button"); iBtn.className = "fbtn"; iBtn.textContent = "I"; iBtn.style.fontStyle = "italic";
+    iBtn.title = "Italic"; iBtn.setAttribute("aria-pressed", String(ital));
+    const applyStyle = () => {
+      a.font = makeFontKey(fontParts(a.font).base, bold, ital);
+      const fc = cssFont(a.font);
+      el.style.fontFamily = fc[0]; el.style.fontWeight = fc[1]; el.style.fontStyle = fc[2];
+      markDirty(); refocusEditing();
+    };
+    bBtn.onclick = () => { bold = !bold; bBtn.setAttribute("aria-pressed", String(bold)); applyStyle(); };
+    iBtn.onclick = () => { ital = !ital; iBtn.setAttribute("aria-pressed", String(ital)); applyStyle(); };
+    box.append(l3, bBtn, iBtn); c.appendChild(box);
+  }
+
+  // After using a context-strip control, hand focus (and the cursor) back to the
+  // text box being edited so typing can continue without an extra click.
+  function refocusEditing() {
+    if (!editingEl) return;
+    editingEl.focus();
+    try {
+      const rng = document.createRange(); rng.selectNodeContents(editingEl); rng.collapse(false);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(rng);
+    } catch (_) {}
+  }
 
   // Split a base-14 font key into family + bold/italic flags, and rebuild it.
   function fontParts(key) {
@@ -1217,6 +1318,8 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
     commitActiveEdit();                 // save/close any other box being edited
     el = elFor(a.id) || el;             // committing others may have rebuilt the DOM
     select(null);                       // keep selection chrome out of the editable box
+    editingA = a; editingEl = el;
+    buildContext();                     // show the live editing controls (color/size/style)
     el.setAttribute("contenteditable", "true");
     // defer focus one tick so the pointer event that created/opened the box
     // can settle first — otherwise the browser steals focus and the box blurs
@@ -1228,13 +1331,18 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
         const s = window.getSelection(); s.removeAllRanges(); s.addRange(rng);
       } catch (_) {}
     }, 0);
-    const finish = () => {
+    const finish = (ev) => {
+      // Focus moving to one of our own color/size/style controls isn't "done typing" —
+      // let that control's own handler run and hand focus back, instead of committing here.
+      if (ev && ev.relatedTarget && $("context").contains(ev.relatedTarget)) return;
       el.removeEventListener("blur", finish);
       el.removeAttribute("contenteditable");
       a.text = (el.innerText || el.textContent || "").replace(/\n$/, "");
+      editingA = null; editingEl = null;
       if (!a.text.trim()) removeAnnot(a.id, true);
       else markDirty();
       if (S.tool === "text" || S.tool === "edittext") setTool("move"); // don't keep spawning boxes
+      else buildContext();
     };
     el.addEventListener("blur", finish);
     el.addEventListener("keydown", (ev) => {
@@ -1306,6 +1414,7 @@ var PDFLIB_B64="IWZ1bmN0aW9uKHQsZSl7Im9iamVjdCI9PXR5cGVvZiBleHBvcnRzJiYidW5kZWZp
   // Layout annotations from model
   // ============================================================
   let _committing = false;
+  let editingA = null, editingEl = null;   // the mark (if any) currently open for typing
   function commitActiveEdit() {
     if (_committing) return;
     _committing = true;
