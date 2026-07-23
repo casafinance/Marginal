@@ -71,10 +71,24 @@ Add these two:
 ### 6. Install it
 - Download the `.exe` from the release’s **Assets** and run it. It installs to your user
   folder — **no admin prompt**.
-- Make it the default: **Windows Settings → Apps → Default apps →** search `.pdf` →
-  choose **Marginal**. (Or right‑click any PDF → *Open with → Choose another app → Marginal → Always*.)
+- Open Marginal and click **Set as default** in the header. This opens Windows’ own
+  “How do you want to open this file?” dialog — pick **Marginal**, check **Always use this
+  app**, click **OK**. That’s it; every PDF now opens in Marginal.
+
+  *(Why a button and not something silent: Windows protects default‑app settings with a
+  hidden verification hash so that no app — ours included — can flip your defaults without
+  you clicking through its own dialog. This button just opens that dialog directly instead
+  of you having to find it in Settings.)*
+
+  If you’d rather do it the “normal” Windows way instead: **Settings → Apps → Default apps →**
+  search `.pdf` → choose **Marginal**. Same result.
 
 Now double‑clicking any PDF opens it straight into Marginal.
+
+**Rolling this out to your team:** each person clicks **Set as default** once, themselves,
+after installing — it’s a per‑user Windows setting so one person’s choice doesn’t affect
+anyone else’s machine, and there’s no way to set it on their behalf without them clicking
+through that dialog (that’s Windows’ security model, not a Marginal limitation).
 
 ---
 

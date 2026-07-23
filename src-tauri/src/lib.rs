@@ -12,7 +12,25 @@ fn first_pdf(args: &[String]) -> Option<String> {
         .cloned()
 }
 
-/// Read a PDF file into a JSON payload the frontend can load: { name, bytes }.
+/// Minimal standard-base64 encoder. Inline (rather than pulling in a crate) so the
+/// dependency set — and therefore the CI build cache — stays unchanged.
+fn b64_encode(data: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0];
+        let b1 = *chunk.get(1).unwrap_or(&0);
+        let b2 = *chunk.get(2).unwrap_or(&0);
+        let n = ((b0 as u32) << 16) | ((b1 as u32) << 8) | (b2 as u32);
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push(if chunk.len() > 1 { T[((n >> 6) & 63) as usize] as char } else { '=' });
+        out.push(if chunk.len() > 2 { T[(n & 63) as usize] as char } else { '=' });
+    }
+    out
+}
+
+/// Read a PDF file into a JSON payload the frontend can load: { name, b64 }.
 fn read_pdf(path: &str) -> Option<serde_json::Value> {
     let bytes = std::fs::read(path).ok()?;
     let name = std::path::Path::new(path)
@@ -20,7 +38,7 @@ fn read_pdf(path: &str) -> Option<serde_json::Value> {
         .and_then(|s| s.to_str())
         .unwrap_or("document.pdf")
         .to_string();
-    Some(serde_json::json!({ "name": name, "bytes": bytes }))
+    Some(serde_json::json!({ "name": name, "b64": b64_encode(&bytes) }))
 }
 
 /// Frontend calls this once on startup to get the file we were opened with (if any).
