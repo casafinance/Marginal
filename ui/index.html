@@ -344,6 +344,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 }
 
 </style>
+<link rel="preload" href="vendor/pdf.min.js" as="script">
+<link rel="preload" href="vendor/pdf.worker.min.js" as="script">
 </head>
 <body>
 <div class="app">
@@ -686,6 +688,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function init() {
     if (_inited) return;   // guards against any duplicate DOMContentLoaded-style trigger
     _inited = true;
+    // Kick off the viewer library load FIRST, before any UI wiring, so its fetch/parse
+    // overlaps with the synchronous work below instead of only starting after it.
+    ensurePdfjs().catch(() => {});
     wireHeader();
     wireTools();
     wireZoom();
@@ -693,10 +698,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     wireDrop();
     wireSearch();
     setTool("move");
-    // The toolbar is now interactive. Warm the viewer library in the background so the
-    // first PDF opens instantly, but don't block startup on it. The export library isn't
-    // needed to view anything, so load it later, when the browser is idle.
-    ensurePdfjs().catch(() => {});
+    // The export library isn't needed to view anything, so load it later, once idle.
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
     idle(() => { ensurePdflib().catch(() => {}); });
   }
