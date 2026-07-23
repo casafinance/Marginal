@@ -102,6 +102,41 @@ button{font-family:inherit}
 .menu button:hover{background:var(--panel-soft,#f4f4f6)}
 .menu button strong{font-size:13px;font-weight:600;color:var(--text)}
 .menu button span{font-size:11px;color:var(--text-soft)}
+.menu-sep{height:1px;background:var(--stroke);margin:5px 2px}
+
+/* ---------- Split modal ---------- */
+.split-sheet{width:min(760px,96vw);max-height:90vh;display:flex;flex-direction:column}
+.split-body{padding:16px 22px;overflow:auto}
+.split-hint{margin:0 0 14px;color:var(--text-soft);font-size:13px;line-height:1.5}
+.split-presets{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px;
+  padding-bottom:16px;border-bottom:1px solid var(--stroke)}
+.split-presets .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-soft)}
+.split-presets .preset-grp{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text)}
+.mini-input{width:44px;height:28px;border:1px solid var(--line,#e3e3e8);border-radius:7px;
+  text-align:center;font-family:var(--font-mono);font-size:13px;background:#fff;color:var(--text)}
+.mini-input:focus{outline:2px solid var(--brand);outline-offset:-1px}
+.btn.sm{padding:5px 10px;font-size:12px}
+.split-grid{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;user-select:none}
+.pchip{width:52px;height:66px;border-radius:8px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;background:var(--panel-soft);
+  border:1px solid var(--stroke);border-top:3px solid var(--grp,#4a3ad9);font-size:13px;color:var(--text)}
+.pchip .pchip-doc{width:20px;height:24px;border:1.5px solid var(--text-soft);border-radius:2px;opacity:.5}
+.pchip .pchip-n{font-family:var(--font-mono);font-size:12px}
+.cutgap{width:26px;align-self:center;height:66px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;position:relative}
+.cutgap::before{content:"";width:2px;height:52px;border-radius:2px;background:transparent;transition:background .12s}
+.cutgap:hover::before{background:var(--stroke)}
+.cutgap.cut::before{background:var(--danger,#e5484d);width:2px;border-left:2px dashed var(--danger,#e5484d);background:transparent}
+.cutgap .scissors{position:absolute;opacity:0;transition:opacity .12s;color:var(--danger,#e5484d);
+  background:var(--panel);border-radius:50%}
+.cutgap:hover .scissors{opacity:.6}
+.cutgap.cut .scissors{opacity:1}
+.cutgap .scissors svg{width:15px;height:15px;display:block}
+.split-summary{font-size:13px;color:var(--text);flex:1;line-height:1.5}
+.split-summary .parts{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:4px}
+.split-summary .part{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-soft)}
+.split-summary .dot{width:9px;height:9px;border-radius:50%;background:var(--grp,#4a3ad9);flex:none}
+.sheet-foot .split-summary{margin-right:auto}
 
 /* ---------- Toolbar ---------- */
 .toolbar{
@@ -157,6 +192,17 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .zbtn:hover{background:var(--panel)}
 .zval{font-family:var(--font-mono);font-size:12.5px;width:48px;text-align:center;color:var(--text)}
 .divider{width:1px;height:26px;background:var(--stroke)}
+.pagenav{display:flex;align-items:center;gap:2px;background:var(--panel-soft);
+  border:1px solid var(--stroke);border-radius:10px;padding:3px}
+.pageinput{width:38px;height:26px;border:none;background:transparent;border-radius:6px;
+  text-align:center;font-family:var(--font-mono);font-size:12.5px;color:var(--text)}
+.pageinput:focus{outline:2px solid var(--brand);outline-offset:-1px;background:var(--panel)}
+.pagetotal{font-family:var(--font-mono);font-size:12.5px;color:var(--text-soft);padding:0 4px 0 0;white-space:nowrap}
+.scrollpage{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:70;
+  background:rgba(22,27,40,.86);color:#fff;font-family:var(--font-mono);font-size:13px;
+  padding:8px 12px;border-radius:9px;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.25);
+  opacity:0;transition:opacity .18s ease}
+.scrollpage.show{opacity:1}
 
 /* ---------- Workspace ---------- */
 .workspace{flex:1;overflow:auto;position:relative;scroll-behavior:smooth}
@@ -398,6 +444,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
           <button id="dlFlat" role="menuitem">
             <strong>Download flattened</strong><span>Locks form fields into static content</span>
           </button>
+          <div class="menu-sep"></div>
+          <button id="dlSplit" role="menuitem">
+            <strong>Split into multiple PDFs…</strong><span>Cut this document into separate files</span>
+          </button>
         </div>
       </div>
       <input type="file" id="fileInput" accept="application/pdf,.pdf" class="hidden">
@@ -446,6 +496,17 @@ input[type=range]{accent-color:var(--brand);width:110px}
         Undo
       </button>
       <div class="divider"></div>
+      <div class="pagenav" id="pageNav" title="Go to page">
+        <button class="zbtn" id="pagePrev" title="Previous page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <input id="pageInput" class="pageinput" inputmode="numeric" value="1" aria-label="Current page">
+        <span class="pagetotal" id="pageTotal">/ 1</span>
+        <button class="zbtn" id="pageNext" title="Next page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="divider"></div>
       <div class="zoom">
         <button class="zbtn" id="zoomOut" title="Zoom out (−)">−</button>
         <span class="zval" id="zoomVal">100%</span>
@@ -454,6 +515,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <button class="btn ghost" id="fitBtn" title="Fit width">Fit</button>
     </div>
   </div>
+
+  <!-- floating page indicator shown while scrolling -->
+  <div class="scrollpage" id="scrollPage" hidden></div>
 
   <!-- Workspace -->
   <div class="workspace tool-move" id="workspace">
@@ -488,6 +552,34 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy"><div class="card"><div class="spinner"></div><div class="msg" id="busyMsg"></div></div></div>
+
+<div class="modal" id="splitModal" hidden>
+  <div class="sheet split-sheet">
+    <div class="sheet-head">
+      <h2>Split PDF</h2>
+      <button class="iconbtn" id="splitClose" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="split-body">
+      <p class="split-hint">Click the gaps between pages to cut, or use a quick preset. Each colored group becomes its own PDF.</p>
+      <div class="split-presets">
+        <span class="lbl">Quick:</span>
+        <span class="preset-grp">every <input id="splitEveryN" class="mini-input" inputmode="numeric" value="1"> pages <button class="btn ghost sm" id="splitEveryApply">Apply</button></span>
+        <span class="preset-grp"><input id="splitEqualN" class="mini-input" inputmode="numeric" value="2"> equal parts <button class="btn ghost sm" id="splitEqualApply">Apply</button></span>
+        <button class="btn ghost sm" id="splitClear">Clear cuts</button>
+      </div>
+      <div class="split-grid" id="splitGrid"></div>
+    </div>
+    <div class="sheet-foot">
+      <div class="split-summary" id="splitSummary"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" id="splitCancel">Cancel</button>
+        <button class="btn primary" id="splitGo" disabled>Split &amp; download</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="defaultAppModal" hidden>
   <div class="sheet default-sheet">
@@ -697,6 +789,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
     wireKeys();
     wireDrop();
     wireSearch();
+    wirePageNav();
+    wireSplitModal();
     setTool("move");
     // The export library isn't needed to view anything, so load it later, once idle.
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
@@ -710,6 +804,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("downloadBtn").onclick = () => doDownload();
     $("dlAsIs").onclick = () => { closeDownloadMenu(); doDownload(); };
     $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
+    $("dlSplit").onclick = () => { closeDownloadMenu(); openSplitModal(); };
     $("downloadMenuBtn").onclick = (e) => { e.stopPropagation(); toggleDownloadMenu(); };
     document.addEventListener("pointerdown", (e) => {
       const m = $("downloadMenu");
@@ -1066,6 +1161,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       $("searchBtn").disabled = false;
       $("empty").classList.add("hidden");
       await buildPages();
+      refreshPageTotal();
       fitWidth();
       toast("Opened " + S.fileName);
     } catch (err) {
@@ -1238,6 +1334,66 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const avail = ws.clientWidth - 32;
     const wPts = S.pages[0].wPts;
     setZoom(avail / wPts);
+  }
+
+  // ---- current page tracking + navigation ----
+  // The page currently "in view" = the one whose vertical span best covers the middle
+  // of the workspace viewport (robust to page gaps and partial pages).
+  function currentPageIdx() {
+    if (!S.pages.length) return 0;
+    const ws = $("workspace");
+    const mid = ws.scrollTop + ws.clientHeight / 2;
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < S.pages.length; i++) {
+      const w = S.pages[i].wrap;
+      const top = w.offsetTop, bottom = top + w.offsetHeight;
+      if (mid >= top && mid < bottom) return i;          // viewport middle is inside this page
+      const dist = mid < top ? top - mid : mid - bottom; // otherwise nearest page
+      if (dist < bestDist) { bestDist = dist; best = i; }
+    }
+    return best;
+  }
+
+  let _pageUiRaf = 0, _scrollHideT = 0;
+  function updatePageUI(fromScroll) {
+    if (!S.pages.length) return;
+    const idx = currentPageIdx();
+    const inp = $("pageInput");
+    if (document.activeElement !== inp) inp.value = String(idx + 1);
+    if (fromScroll) {
+      const sp = $("scrollPage");
+      sp.hidden = false; sp.textContent = "Page " + (idx + 1) + " / " + S.pages.length;
+      sp.classList.add("show");
+      clearTimeout(_scrollHideT);
+      _scrollHideT = setTimeout(() => { sp.classList.remove("show"); setTimeout(() => { sp.hidden = true; }, 200); }, 700);
+    }
+  }
+
+  function goToPage(n) {
+    if (!S.pages.length) return;
+    const idx = Math.min(S.pages.length, Math.max(1, n | 0)) - 1;
+    const w = S.pages[idx].wrap;
+    if (w.scrollIntoView) w.scrollIntoView({ behavior: "smooth", block: "start" });
+    $("pageInput").value = String(idx + 1);
+  }
+
+  function refreshPageTotal() {
+    const total = S.pages.length || 1;
+    $("pageTotal").textContent = "/ " + total;
+    $("pageInput").value = "1";
+  }
+
+  function wirePageNav() {
+    const ws = $("workspace");
+    ws.addEventListener("scroll", () => {
+      if (_pageUiRaf) return;
+      _pageUiRaf = requestAnimationFrame(() => { _pageUiRaf = 0; updatePageUI(true); });
+    });
+    $("pagePrev").onclick = () => goToPage(currentPageIdx() + 1 - 1);
+    $("pageNext").onclick = () => goToPage(currentPageIdx() + 1 + 1);
+    const commit = () => { const n = parseInt($("pageInput").value, 10); if (isFinite(n)) goToPage(n); else $("pageInput").value = String(currentPageIdx() + 1); };
+    $("pageInput").addEventListener("change", commit);
+    $("pageInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); $("pageInput").blur(); } });
   }
 
   // ============================================================
@@ -1716,7 +1872,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     window.addEventListener("keydown", (e) => {
       const ae = document.activeElement;
       const typing = ae && (ae.isContentEditable || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden;
+      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyF") {
         e.preventDefault();
@@ -1725,6 +1881,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       }
       if (e.code === "Escape") {
         if (!$("signModal").hidden) { closeSignModal(); return; }
+        if (!$("splitModal").hidden) { closeSplitModal(); return; }
         if (!$("previewModal").hidden) { closePreview(); return; }
         if (!$("defaultAppModal").hidden) { $("defaultAppModal").hidden = true; return; }
         if (!$("searchBar").hidden) { closeSearch(); return; }
@@ -2415,6 +2572,170 @@ input[type=range]{accent-color:var(--brand);width:110px}
       console.error("Update check failed:", e);
       if (opts.manual) toast("Couldn't check for updates: " + (e && e.message ? e.message : e));
     }
+  }
+
+  // ============================================================
+  // Split PDF into multiple files
+  // ============================================================
+  const SPLIT_COLORS = ["#4a3ad9", "#e5484d", "#178a4c", "#d9822b", "#2f6bff", "#8b3ad9", "#0e9aa7", "#c026a6"];
+  let splitCuts = new Set();   // gap indices i (0..M-2) where a cut sits AFTER page i
+
+  function splitGroups() {
+    const M = S.pages.length;
+    const groups = []; let start = 0;
+    for (let i = 0; i < M - 1; i++) {
+      if (splitCuts.has(i)) { groups.push([start, i]); start = i + 1; }
+    }
+    groups.push([start, M - 1]);   // last group runs to the end
+    return groups;                 // array of [firstIdx, lastIdx] inclusive, 0-based
+  }
+
+  function groupOfPage(idx) {
+    let g = 0;
+    for (let i = 0; i < idx; i++) if (splitCuts.has(i)) g++;
+    return g;
+  }
+
+  function openSplitModal() {
+    if (!S.pages.length) return;
+    splitCuts = new Set();
+    renderSplitGrid();
+    renderSplitSummary();
+    $("splitModal").hidden = false;
+  }
+  function closeSplitModal() { $("splitModal").hidden = true; }
+
+  function renderSplitGrid() {
+    const grid = $("splitGrid");
+    grid.innerHTML = "";
+    const M = S.pages.length;
+    for (let i = 0; i < M; i++) {
+      const chip = document.createElement("div");
+      chip.className = "pchip";
+      chip.style.setProperty("--grp", SPLIT_COLORS[groupOfPage(i) % SPLIT_COLORS.length]);
+      const doc = document.createElement("div"); doc.className = "pchip-doc";
+      const n = document.createElement("div"); n.className = "pchip-n"; n.textContent = i + 1;
+      chip.append(doc, n);
+      grid.appendChild(chip);
+      if (i < M - 1) {
+        const gap = document.createElement("div");
+        gap.className = "cutgap" + (splitCuts.has(i) ? " cut" : "");
+        gap.title = "Cut here";
+        gap.innerHTML = '<span class="scissors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.5 15.5M14.5 14.5 20 20M8.5 8.5 12 12"/></svg></span>';
+        gap.onclick = () => { if (splitCuts.has(i)) splitCuts.delete(i); else splitCuts.add(i); renderSplitGrid(); renderSplitSummary(); };
+        grid.appendChild(gap);
+      }
+    }
+  }
+
+  function renderSplitSummary() {
+    const groups = splitGroups();
+    const sum = $("splitSummary");
+    const rangeText = (g) => g[0] === g[1] ? ("page " + (g[0] + 1)) : ("pages " + (g[0] + 1) + "–" + (g[1] + 1));
+    let html = "<strong>" + groups.length + (groups.length === 1 ? " file</strong> (no cuts yet — click a gap above)" : " files</strong>");
+    html += '<div class="parts">';
+    groups.forEach((g, k) => {
+      const c = SPLIT_COLORS[k % SPLIT_COLORS.length];
+      html += '<span class="part"><span class="dot" style="background:' + c + '"></span>Part ' + (k + 1) + ": " + rangeText(g) + "</span>";
+    });
+    html += "</div>";
+    sum.innerHTML = html;
+    $("splitGo").disabled = groups.length < 2;
+    $("splitGo").textContent = groups.length < 2 ? "Split & download" : ("Split into " + groups.length + " files");
+  }
+
+  function applyEveryN() {
+    const n = parseInt($("splitEveryN").value, 10);
+    if (!isFinite(n) || n < 1) return;
+    splitCuts = new Set();
+    for (let i = 0; i < S.pages.length - 1; i++) if ((i + 1) % n === 0) splitCuts.add(i);
+    renderSplitGrid(); renderSplitSummary();
+  }
+  function applyEqualN() {
+    const parts = parseInt($("splitEqualN").value, 10);
+    const M = S.pages.length;
+    if (!isFinite(parts) || parts < 1) return;
+    splitCuts = new Set();
+    // distribute M pages across `parts` groups as evenly as possible
+    const base = Math.floor(M / parts), extra = M % parts;
+    let acc = 0;
+    for (let k = 0; k < parts - 1; k++) {
+      acc += base + (k < extra ? 1 : 0);
+      if (acc >= 1 && acc <= M - 1) splitCuts.add(acc - 1);
+    }
+    renderSplitGrid(); renderSplitSummary();
+  }
+
+  async function doSplit() {
+    const groups = splitGroups();
+    if (groups.length < 2) return;
+    try {
+      busy(true, "Splitting…");
+      await ensurePdflib();
+      // Start from the fully edited + flattened document so each part includes your edits.
+      const { bytes } = await buildPdfBytes();
+      const { PDFDocument } = PDFLib;
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const base = S.fileName.replace(/\.pdf$/i, "");
+      const files = [];
+      for (let k = 0; k < groups.length; k++) {
+        const [a, b] = groups[k];
+        const out = await PDFDocument.create();
+        const idxs = []; for (let p = a; p <= b; p++) idxs.push(p);
+        const copied = await out.copyPages(src, idxs);
+        copied.forEach((pg) => out.addPage(pg));
+        const partBytes = await out.save({ useObjectStreams: false });
+        const label = a === b ? "p" + (a + 1) : "p" + (a + 1) + "-" + (b + 1);
+        files.push({ name: base + " part " + (k + 1) + " (" + label + ").pdf", data: partBytes });
+      }
+      const zip = zipStore(files);
+      downloadBlob(zip, base + " (split into " + groups.length + ").zip", "application/zip");
+      closeSplitModal();
+      toast("Split into " + groups.length + " files — downloaded as a .zip");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't split this PDF.");
+    } finally { busy(false); }
+  }
+
+  // ---- minimal ZIP writer (STORE, no compression — PDFs are already compressed) ----
+  const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zipStore(files) {
+    const enc = new TextEncoder();
+    const u16 = (n) => [n & 0xFF, (n >>> 8) & 0xFF];
+    const u32 = (n) => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
+    const chunks = [], central = []; let offset = 0;
+    for (const f of files) {
+      const nameBytes = enc.encode(f.name), data = f.data, crc = crc32(data);
+      const local = [].concat(u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0));
+      chunks.push(new Uint8Array(local), nameBytes, data);
+      const cen = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset));
+      central.push({ header: new Uint8Array(cen), name: nameBytes });
+      offset += local.length + nameBytes.length + data.length;
+    }
+    const cdStart = offset; let cdLen = 0;
+    for (const c of central) { chunks.push(c.header, c.name); cdLen += c.header.length + c.name.length; }
+    chunks.push(new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(cdLen), u32(cdStart), u16(0))));
+    let total = 0; for (const c of chunks) total += c.length;
+    const zip = new Uint8Array(total); let p = 0;
+    for (const c of chunks) { zip.set(c, p); p += c.length; }
+    return zip;
+  }
+  function downloadBlob(bytes, name, mime) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: mime || "application/octet-stream" }));
+    const a = document.createElement("a"); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  function wireSplitModal() {
+    $("splitClose").onclick = closeSplitModal;
+    $("splitCancel").onclick = closeSplitModal;
+    $("splitGo").onclick = doSplit;
+    $("splitEveryApply").onclick = applyEveryN;
+    $("splitEqualApply").onclick = applyEqualN;
+    $("splitClear").onclick = () => { splitCuts = new Set(); renderSplitGrid(); renderSplitSummary(); };
   }
 
   function initDesktop() {
