@@ -58,14 +58,18 @@ button{font-family:inherit}
 }
 .brand .mark .dot{color:var(--brand)}
 .brand .tag{font-size:11px;color:var(--text-soft);letter-spacing:.02em}
-.filechip{
-  display:flex;align-items:center;gap:8px;min-width:0;flex:1;
-}
-.filechip .name{
-  font-size:13px;color:var(--text-soft);white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;max-width:46vw;
-}
-.filechip .name.dirty::after{content:"•";color:var(--brand);margin-left:6px;font-weight:800}
+.tabbar{display:flex;align-items:center;gap:4px;min-width:0;flex:1;overflow-x:auto;scrollbar-width:thin}
+.tab{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 12px;border-radius:8px 8px 0 0;
+  background:transparent;color:var(--text-soft);cursor:pointer;max-width:220px;flex:none;
+  border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{background:var(--panel-soft)}
+.tab[aria-current="true"]{background:var(--panel-soft);color:var(--text);border-bottom-color:var(--brand)}
+.tab .tab-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.tab .tab-name.dirty::after{content:"•";color:var(--brand);margin-left:5px;font-weight:800}
+.tab .tab-x{width:18px;height:18px;border-radius:5px;border:none;background:transparent;
+  color:var(--text-soft);display:grid;place-items:center;flex:none}
+.tab .tab-x:hover{background:var(--stroke);color:var(--text)}
+.tab .tab-x svg{width:12px;height:12px}
 .header .spacer{flex:1}
 .header .actions{display:flex;gap:8px;align-items:center}
 
@@ -150,6 +154,15 @@ button{font-family:inherit}
 .split-or::before,.split-or::after{content:"";flex:1;height:1px;background:var(--stroke)}
 .split-summary{font-size:13px;color:var(--text);flex:1;line-height:1.5}
 .sheet-foot .split-summary{margin-right:auto}
+
+/* ---------- Merge modal ---------- */
+.merge-list{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;padding-right:2px}
+.merge-empty{padding:24px 0;text-align:center;color:var(--text-soft);font-size:13px}
+.merge-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+  background:var(--panel-soft);border:1px solid var(--stroke)}
+.merge-num{font-family:var(--font-mono);font-size:12px;color:var(--text-soft);width:20px;flex:none}
+.merge-name{flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.merge-pages{font-size:11.5px;color:var(--text-soft);white-space:nowrap;flex:none}
 
 /* ---------- Toolbar ---------- */
 .toolbar{
@@ -393,7 +406,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   .tool{width:48px;font-size:0}
   .tool svg{width:20px;height:20px}
   .brand .tag{display:none}
-  .filechip .name{max-width:30vw}
+  .tab .tab-name{max-width:90px}
   .context{gap:8px}
   input[type=range]{width:78px}
 }
@@ -414,7 +427,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <span class="mark">Marginal<span class="dot">.</span></span>
       <span class="tag">edit PDFs in your browser</span>
     </div>
-    <div class="filechip"><span class="name" id="fileName">No file open</span></div>
+    <div class="tabbar" id="tabBar" hidden></div>
     <div class="spacer"></div>
     <div class="actions">
       <span class="ocrstatus" id="ocrStatus" hidden><span class="ocrspin"></span><span id="ocrStatusText">Reading text…</span></span>
@@ -433,6 +446,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <button class="btn" id="openBtn" title="Open a PDF (⌘/Ctrl+O)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Open
+      </button>
+      <button class="btn" id="mergeBtn" title="Merge multiple PDFs into one">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/></svg>
+        Merge
       </button>
       <button class="btn" id="printBtn" disabled title="Print (⌘/Ctrl+P)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -463,7 +480,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
           </button>
         </div>
       </div>
-      <input type="file" id="fileInput" accept="application/pdf,.pdf" class="hidden">
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple class="hidden">
     </div>
   </header>
 
@@ -484,10 +501,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
         Edit text
       </button>
-      <button class="tool" data-tool="whiteout" title="Whiteout / redact (W)">
+      <button class="tool" data-tool="whiteout" title="Redact — genuinely removes the covered content, not just a cosmetic cover (W)">
         <span class="chip" id="chipWo"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="10" rx="1.5"/></svg>
-        Whiteout
+        Redact
       </button>
       <button class="tool" data-tool="check" title="Add a checkbox (C)">
         <span class="chip" id="chipCheck"></span>
@@ -565,6 +582,31 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy"><div class="card"><div class="spinner"></div><div class="msg" id="busyMsg"></div></div></div>
+
+<div class="modal" id="mergeModal" hidden>
+  <div class="sheet split-sheet">
+    <div class="sheet-head">
+      <h2>Merge PDFs</h2>
+      <button class="iconbtn" id="mergeClose" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="split-body">
+      <p class="split-hint">Add PDFs and put them in the order you want — they'll be combined into one file, top to bottom.</p>
+      <input type="file" id="mergeFileInput" accept="application/pdf,.pdf" multiple class="hidden">
+      <button class="btn ghost sm" id="mergeAddBtn" style="margin-bottom:14px">+ Add PDFs</button>
+      <div class="merge-list" id="mergeList"></div>
+      <div class="merge-empty" id="mergeEmpty">No files added yet.</div>
+    </div>
+    <div class="sheet-foot">
+      <div class="split-summary" id="mergeSummary"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" id="mergeCancel">Cancel</button>
+        <button class="btn primary" id="mergeGo" disabled>Merge &amp; save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="splitModal" hidden>
   <div class="sheet split-sheet">
@@ -751,7 +793,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ---- Tool palettes ----
   const PALETTES = {
     text:      { colors: ["#000000", "#e5322d", "#2f6bff", "#178a4c", "#ffffff"], size: [6, 72, 10], sizeLabel: "Size" },
-    whiteout:  { colors: ["#ffffff", "#faf7ef", "#f1f1f1", "#111111"], size: null },
+    whiteout:  { colors: ["#111111", "#ffffff", "#faf7ef", "#f1f1f1"], size: null },
     check:     { colors: ["#000000", "#e5322d", "#2f6bff", "#178a4c"], size: [6, 240, 18], sizeLabel: "Size" },
   };
   // Add-text and Edit-text share the same "text" color/size settings.
@@ -776,23 +818,119 @@ input[type=range]{accent-color:var(--brand);width:110px}
   const cssFont = (key) => FONT_CSS[key] || FONT_CSS["Helvetica"];
 
   // ---- State ----
-  const S = {
-    pdf: null,
-    bytes: null,           // Uint8Array of the loaded file
-    fileName: "document.pdf",
-    zoom: 1,
-    tool: "move",
-    color: { text: "#000000", whiteout: "#ffffff", check: "#000000" },
-    size:  { text: 10, check: 18 },
-    pages: [],             // { num, wPts, hPts, rot, wrap, overlay, canvas, task, renderedZoom }
-    annots: [],            // see makeAnnot
-    undo: [],
-    sel: null,             // selected annot id
-    dirty: false,
-    io: null,
-    search: { q: "", hits: [], idx: -1 },
-    ocr: { running: false, done: false, forced: false },
-  };
+  // One entry per open tab. `S` always points at whichever entry is currently active —
+  // every existing function below reads/writes S.foo through this same closure, so
+  // switching tabs is just reassigning S to a different entry and re-rendering.
+  function makeDocState() {
+    return {
+      pdf: null,
+      bytes: null,
+      fileName: "document.pdf",
+      zoom: 1,
+      tool: "move",
+      color: { text: "#000000", whiteout: "#111111", check: "#000000" },
+      size: { text: 10, check: 18 },
+      pages: [],
+      annots: [],
+      undo: [],
+      sel: null,
+      dirty: false,
+      io: null,
+      search: { q: "", hits: [], idx: -1 },
+      ocr: { running: false, done: false, forced: false },
+    };
+  }
+  const docs = [];        // makeDocState()[]
+  let activeIdx = -1;
+  let S = makeDocState();
+
+  // ---- tabs ----
+  function newTab() {
+    const doc = makeDocState();
+    docs.push(doc);
+    activeIdx = docs.length - 1;
+    S = doc;
+    renderTabs();
+    return doc;
+  }
+
+  function renderTabs() {
+    const bar = $("tabBar");
+    bar.hidden = docs.length === 0;
+    bar.innerHTML = "";
+    docs.forEach((doc, i) => {
+      const tab = document.createElement("div");
+      tab.className = "tab"; tab.setAttribute("aria-current", String(i === activeIdx));
+      tab.title = doc.fileName;
+      const name = document.createElement("span");
+      name.className = "tab-name" + (doc.dirty ? " dirty" : "");
+      name.textContent = doc.fileName;
+      const x = document.createElement("button");
+      x.className = "tab-x"; x.title = "Close";
+      x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+      x.onclick = (e) => { e.stopPropagation(); closeTab(i); };
+      tab.append(name, x);
+      tab.onclick = () => switchToTab(i);
+      bar.appendChild(tab);
+    });
+  }
+
+  // Redraws the workspace for whichever doc is now active. Re-renders from the cached
+  // pdf.js document rather than re-parsing the file, so it's a fresh render, not a
+  // fresh load — a deliberate simplicity/speed tradeoff over keeping every tab's DOM
+  // alive in the background.
+  async function showActiveDoc() {
+    closeSearch();
+    if (!S.pdf) {
+      $("empty").classList.remove("hidden");
+      $("pages").innerHTML = "";
+      setToolbarEnabled(false);
+      buildContext();
+      return;
+    }
+    $("empty").classList.add("hidden");
+    setToolbarEnabled(true);
+    await buildPages();
+    layout();   // buildPages() only builds page/canvas structure — this renders S.annots onto it
+    refreshPageTotal();
+    updateZoomUI();
+    $("undoBtn").disabled = S.undo.length === 0;
+    buildContext();
+    document.querySelectorAll(".tool").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === S.tool)));
+    $("workspace").className = "workspace tool-" + S.tool;
+  }
+
+  function setToolbarEnabled(on) {
+    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn"].forEach((id) => { $(id).disabled = !on; });
+  }
+
+  async function switchToTab(i) {
+    if (i === activeIdx || i < 0 || i >= docs.length) return;
+    activeIdx = i; S = docs[i];
+    renderTabs();
+    await showActiveDoc();
+  }
+
+  function closeTab(i) {
+    if (i < 0 || i >= docs.length) return;
+    const doc = docs[i];
+    if (doc.io) { try { doc.io.disconnect(); } catch (_) {} }
+    if (doc.pdf) { try { doc.pdf.destroy(); } catch (_) {} }
+    docs.splice(i, 1);
+    if (docs.length === 0) {
+      activeIdx = -1; S = makeDocState();
+      renderTabs(); showActiveDoc();
+      return;
+    }
+    if (i === activeIdx) {
+      activeIdx = Math.min(i, docs.length - 1);
+      S = docs[activeIdx];
+      renderTabs(); showActiveDoc();
+    } else {
+      if (i < activeIdx) activeIdx--;
+      renderTabs();   // just needs re-numbering; the visible doc didn't change
+    }
+  }
 
   let uid = 1;
   const nid = () => "a" + uid++;
@@ -815,6 +953,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     wireSearch();
     wirePageNav();
     wireSplitModal();
+    wireMergeModal();
     setTool("move");
     // The export library isn't needed to view anything, so load it later, once idle.
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
@@ -824,7 +963,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function wireHeader() {
     $("openBtn").onclick = pickFile;
     $("dropOpenBtn").onclick = pickFile;
-    $("fileInput").onchange = (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ""; };
+    $("fileInput").onchange = (e) => { Array.from(e.target.files).forEach((f) => loadFile(f)); e.target.value = ""; };
     $("downloadBtn").onclick = () => doDownload();
     $("dlAsIs").onclick = () => { closeDownloadMenu(); doDownload(); };
     $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
@@ -837,7 +976,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("previewBtn").onclick = doPreview;
     $("printBtn").onclick = () => doPreview({ print: true });
     $("previewClose").onclick = closePreview;
-    $("previewDownload").onclick = () => { if (S._previewBytes) downloadBytes(S._previewBytes, outName()); };
+    $("previewDownload").onclick = () => { if (S._previewBytes) saveFile(S._previewBytes, outName(), "application/pdf"); };
     $("undoBtn").onclick = undo;
   }
 
@@ -849,10 +988,29 @@ input[type=range]{accent-color:var(--brand);width:110px}
     ["dragenter", "dragover"].forEach((ev) => ws.addEventListener(ev, (e) => { stop(e); dz && dz.classList.add("hot"); }));
     ["dragleave", "drop"].forEach((ev) => ws.addEventListener(ev, (e) => { stop(e); dz && dz.classList.remove("hot"); }));
     ws.addEventListener("drop", (e) => {
-      const f = e.dataTransfer.files[0];
-      if (f && /\.pdf$/i.test(f.name)) loadFile(f);
-      else if (f) toast("That's not a PDF file.");
+      const files = filesFromDrop(e.dataTransfer);
+      const pdfs = files.filter((f) => f && /\.pdf$/i.test(f.name));
+      if (!files.length) return;   // some drag sources (e.g. certain Outlook/OLE attachments)
+                                    // don't expose a readable file to the browser at all —
+                                    // nothing we can do at the web layer for those.
+      if (!pdfs.length) { toast("That's not a PDF file."); return; }
+      if (pdfs.length === 1) { loadFile(pdfs[0]); return; }
+      // Multiple PDFs dropped at once — feed them straight into Merge instead of only
+      // opening the first and silently ignoring the rest.
+      openMergeModal();
+      addMergeFiles(pdfs);
+      toast("Dropped " + pdfs.length + " PDFs into Merge — add more or reorder, then merge.");
     });
+  }
+
+  // Prefer dataTransfer.files, but fall back to dataTransfer.items' getAsFile(), which
+  // some drag sources populate even when .files comes back empty or incomplete.
+  function filesFromDrop(dt) {
+    if (dt.files && dt.files.length) return Array.from(dt.files);
+    if (dt.items && dt.items.length) {
+      return Array.from(dt.items).filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
+    }
+    return [];
   }
 
   // ============================================================
@@ -1162,35 +1320,40 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // Load + render
   // ============================================================
   async function loadFile(file) {
+    const doc = newTab();   // every open (Open button, drag-drop, double-click-to-open) is its own tab
+    doc.fileName = file.name || "document.pdf";
+    renderTabs();
     try {
       busy(true);
       await ensurePdfjs();                 // viewer library ready (usually already warmed at startup)
       const buf = new Uint8Array(await file.arrayBuffer());
-      S.bytes = buf;
-      S.fileName = file.name || "document.pdf";
+      doc.bytes = buf;
       // pdf.js consumes (transfers) the buffer, so hand it a copy.
-      const doc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
-      S.pdf = doc;
-      S.annots = []; S.undo = []; S.sel = null; S.dirty = false;
-      S.search = { q: "", hits: [], idx: -1 };
-      S.ocr = { running: false, done: false, forced: false };
-      $("searchBar").hidden = true; $("searchInput").value = ""; $("searchCount").textContent = "";
-      clearOcrStatus();
-      $("fileName").textContent = S.fileName;
-      $("fileName").classList.remove("dirty");
-      $("downloadBtn").disabled = false;
-      $("downloadMenuBtn").disabled = false;
-      $("previewBtn").disabled = false;
-      $("printBtn").disabled = false;
-      $("searchBtn").disabled = false;
-      $("empty").classList.add("hidden");
-      await buildPages();
-      refreshPageTotal();
-      fitWidth();
-      toast("Opened " + S.fileName);
+      const pdfDoc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+      doc.pdf = pdfDoc;
+      doc.annots = []; doc.undo = []; doc.sel = null; doc.dirty = false;
+      doc.search = { q: "", hits: [], idx: -1 };
+      doc.ocr = { running: false, done: false, forced: false };
+      renderTabs();   // safe regardless of which tab is active — just updates names/dirty dots
+      // Only touch shared chrome (toolbar, #pages, zoom) if this tab is STILL the one
+      // showing — opening several files at once means earlier loads can finish after a
+      // later one has already taken over as active, and this must not render into it.
+      if (S === doc) {
+        $("searchBar").hidden = true; $("searchInput").value = ""; $("searchCount").textContent = "";
+        clearOcrStatus();
+        setToolbarEnabled(true);
+        $("undoBtn").disabled = true;
+        $("empty").classList.add("hidden");
+        await buildPages();
+        refreshPageTotal();
+        fitWidth();
+      }
+      toast("Opened " + doc.fileName);
     } catch (err) {
       console.error(err);
       toast("Couldn't open this PDF. It may be damaged or password-protected.");
+      const failedIdx = docs.indexOf(doc);
+      if (failedIdx !== -1) closeTab(failedIdx);
     } finally {
       busy(false);
     }
@@ -1332,6 +1495,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function setZoom(z) { zoomAt(z, null, null); }
+  function updateZoomUI() { $("zoomVal").textContent = Math.round(S.zoom * 100) + "%"; }
 
   function zoomAt(z, cx, cy) {
     z = Math.max(0.25, Math.min(5, z));
@@ -1896,7 +2060,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     window.addEventListener("keydown", (e) => {
       const ae = document.activeElement;
       const typing = ae && (ae.isContentEditable || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden;
+      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyF") {
         e.preventDefault();
@@ -1906,6 +2070,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (e.code === "Escape") {
         if (!$("signModal").hidden) { closeSignModal(); return; }
         if (!$("splitModal").hidden) { closeSplitModal(); return; }
+        if (!$("mergeModal").hidden) { closeMergeModal(); return; }
         if (!$("previewModal").hidden) { closePreview(); return; }
         if (!$("defaultAppModal").hidden) { $("defaultAppModal").hidden = true; return; }
         if (!$("searchBar").hidden) { closeSearch(); return; }
@@ -1996,6 +2161,42 @@ input[type=range]{accent-color:var(--brand);width:110px}
       }
       try { stripFormFields(pdf); } catch (e) { console.error("direct field removal failed:", e && e.message); }
     }
+    // Redaction: genuinely removes the covered content (not just draws over it — a plain
+    // rectangle on top would still leave the original text extractable underneath).
+    // Verified approach: rasterize the whole page to an image, draw the redaction boxes
+    // onto that image, then replace the page's content stream with just the image. The
+    // original vector content is gone at the byte level, not merely hidden. Runs once per
+    // affected page, before the per-annotation loop below (so our other marks on that same
+    // page — checkboxes, signatures, text — still get drawn on top of the fresh image).
+    const redactPages = new Set(S.annots.filter((a) => a.type === "whiteout").map((a) => a.page));
+    for (const pageIdx of redactPages) {
+      const rec = S.pages[pageIdx];
+      const pg = pdf.getPages()[pageIdx];
+      if (!rec || !pg) continue;
+      try {
+        const scale = 2;   // ~144 DPI-equivalent — sharp enough without ballooning file size
+        const vp = rec.page.getViewport({ scale });   // same visual/rotated space as on-screen
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
+        const ctx = canvas.getContext("2d");
+        await rec.page.render({ canvasContext: ctx, viewport: vp }).promise;
+        for (const a of S.annots) {
+          if (a.page === pageIdx && a.type === "whiteout") {
+            ctx.fillStyle = a.color;
+            ctx.fillRect(a.x * scale, a.y * scale, a.w * scale, a.h * scale);
+          }
+        }
+        const pngBytes = _bytesOfB64(canvas.toDataURL("image/png").split(",")[1]);
+        const img = await pdf.embedPng(pngBytes);
+        pg.node.set(PDFLib.PDFName.of("Contents"), pdf.context.obj([]));   // drop the original content — verified this fully removes it, not just covers it
+        const rot = ((pg.getRotation().angle % 360) + 360) % 360;
+        if (rot !== 0) { pg.setRotation(PDFLib.degrees(0)); pg.setSize(rec.wPts, rec.hPts); }
+        pg.drawImage(img, { x: 0, y: 0, width: rec.wPts, height: rec.hPts });
+      } catch (e) {
+        console.error("Redaction failed for page " + (pageIdx + 1) + ":", e && e.message);
+        toast("Couldn't fully redact page " + (pageIdx + 1) + " — check it before sending.");
+      }
+    }
     const STD = {
       "Helvetica": StandardFonts.Helvetica, "Helvetica-Bold": StandardFonts.HelveticaBold,
       "Helvetica-Oblique": StandardFonts.HelveticaOblique, "Helvetica-BoldOblique": StandardFonts.HelveticaBoldOblique,
@@ -2019,12 +2220,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
         const rot = ((pg.getRotation().angle % 360) + 360) % 360;
         const M = mapper(rot, Wu, Hu);
 
-        if (a.type === "whiteout" || a.type === "highlight") {
+        if (a.type === "whiteout") {
+          // handled above by the rasterization pass — drawing it again here would be redundant
+        } else if (a.type === "highlight") {
           const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
           const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
           const w = Math.abs(c1.x - c2.x), h = Math.abs(c1.y - c2.y);
-          pg.drawRectangle({ x, y, width: w, height: h, color: hex(rgb, a.color),
-            opacity: a.type === "highlight" ? 0.4 : 1 });
+          pg.drawRectangle({ x, y, width: w, height: h, color: hex(rgb, a.color), opacity: 0.4 });
         } else if (a.type === "draw") {
           for (let i = 1; i < a.pts.length; i++) {
             const s = M(a.pts[i - 1].x, a.pts[i - 1].y), t = M(a.pts[i].x, a.pts[i].y);
@@ -2092,8 +2294,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       busy(true, opts.flatten ? "Flattening your PDF…" : "Preparing your PDF…");
       const { bytes, skippedText } = await buildPdfBytes(opts);
       const name = outName(opts.flatten);
-      downloadBytes(bytes, name);
-      S.dirty = false; $("fileName").classList.remove("dirty");
+      const saved = await saveFile(bytes, name, "application/pdf");
+      if (!saved) return;
+      S.dirty = false; renderTabs();
       toast(skippedText
         ? "Saved " + name + " — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
         : "Saved " + name);
@@ -2153,12 +2356,62 @@ input[type=range]{accent-color:var(--brand);width:110px}
     return rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255);
   }
 
-  function downloadBytes(bytes, name) {
-    const blob = new Blob([bytes], { type: "application/pdf" });
+  function _b64EncodeU8(u8) {
+    let binary = "";
+    const CHUNK = 0x8000;   // avoid "Maximum call stack size exceeded" on large files
+    for (let i = 0; i < u8.length; i += CHUNK) binary += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+    return btoa(binary);
+  }
+
+  // Save bytes to disk, letting the person choose the folder and filename. Returns
+  // true if the file was actually written, false if cancelled or it failed (an error
+  // is toasted here either way, so callers only need to react to a genuine save).
+  //  - Desktop: a real native "Save As" dialog (Rust command — see lib.rs for why this
+  //    can't go through window.__TAURI__.dialog directly).
+  //  - Browser: the File System Access API's picker, where supported (Chromium).
+  //  - Anywhere else: falls back to the classic auto-download-to-Downloads behavior,
+  //    so nothing breaks on browsers without that API, or if the person cancels.
+  async function saveFile(bytes, suggestedName, mime) {
+    const isPdf = mime === "application/pdf";
+    const T = window.__TAURI__;
+    if (T) {
+      try {
+        const b64 = _b64EncodeU8(bytes);
+        const ok = await T.core.invoke("save_file_as", {
+          defaultName: suggestedName,
+          filterName: isPdf ? "PDF Document" : "Zip Archive",
+          filterExt: isPdf ? "pdf" : "zip",
+          b64,
+        });
+        return !!ok;   // false = person cancelled the dialog — not an error
+      } catch (e) {
+        console.error("save_file_as failed:", e);
+        toast("Couldn't save the file: " + (e && e.message ? e.message : e));
+        return false;
+      }
+    }
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: isPdf ? "PDF Document" : "Zip Archive", accept: { [mime]: ["." + (isPdf ? "pdf" : "zip")] } }],
+        });
+        const w = await handle.createWritable();
+        await w.write(bytes);
+        await w.close();
+        return true;
+      } catch (e) {
+        if (e && e.name === "AbortError") return false;   // person cancelled — not an error
+        console.error("showSaveFilePicker failed, falling back to a normal download:", e);
+        // fall through to the classic download below
+      }
+    }
+    const blob = new Blob([bytes], { type: mime });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = name;
+    const a = document.createElement("a"); a.href = url; a.download = suggestedName;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return true;
   }
 
   // ============================================================
@@ -2584,7 +2837,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ============================================================
   // Misc helpers
   // ============================================================
-  function markDirty() { S.dirty = true; $("fileName").classList.add("dirty"); }
+  function markDirty() { S.dirty = true; renderTabs(); }
 
   function busy(on, msg) { $("busy").classList.toggle("show", on); const m = $("busyMsg"); if (m) m.textContent = on ? (msg || "") : ""; }
 
@@ -2615,14 +2868,15 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const T = window.__TAURI__;
     if (!T) return;
     try {
-      const upd = T.updater;
-      if (!upd || !upd.check) { if (opts.manual) toast("The updater isn't available in this build."); return; }
       if (opts.manual) toast("Checking for updates…");
-      const update = await upd.check();
-      if (update && update.available) {
-        if (opts.manual) toast("Downloading " + (update.version ? "version " + update.version : "the update") + "…");
-        await update.downloadAndInstall();
-        if (T.process && T.process.relaunch) await T.process.relaunch();
+      // Calls Rust directly (see lib.rs) — window.__TAURI__.updater doesn't actually
+      // exist without a JS bundler, so going through it here would silently no-op.
+      const info = await T.core.invoke("check_for_update");
+      if (info) {
+        if (opts.manual) toast("Downloading version " + info.version + "…");
+        await T.core.invoke("install_update");
+        // The Windows installer restarts the app automatically once installed —
+        // nothing else to do here.
       } else if (opts.manual) {
         toast("You're already on the latest version.");
       }
@@ -2717,7 +2971,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const outBytes = await out.save({ useObjectStreams: false });
       const base = S.fileName.replace(/\.pdf$/i, "");
       const n = indices.length;
-      downloadBlob(outBytes, base + " (" + n + (n === 1 ? " page" : " pages") + " extracted).pdf", "application/pdf");
+      const name = base + " (" + n + (n === 1 ? " page" : " pages") + " extracted).pdf";
+      const saved = await saveFile(outBytes, name, "application/pdf");
+      if (!saved) return;
       closeSplitModal();
       toast("Extracted " + n + (n === 1 ? " page" : " pages") + ".");
     } catch (e) {
@@ -2875,9 +3131,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
         files.push({ name: base + " part " + (k + 1) + " (" + label + ").pdf", data: partBytes });
       }
       const zip = zipStore(files);
-      downloadBlob(zip, base + " (split into " + groups.length + ").zip", "application/zip");
+      const zipName = base + " (split into " + groups.length + ").zip";
+      const saved = await saveFile(zip, zipName, "application/zip");
+      if (!saved) return;
       closeSplitModal();
-      toast("Split into " + groups.length + " files — downloaded as a .zip");
+      toast("Split into " + groups.length + " files — saved as a .zip");
     } catch (e) {
       console.error(e);
       toast("Couldn't split this PDF.");
@@ -2908,11 +3166,91 @@ input[type=range]{accent-color:var(--brand);width:110px}
     for (const c of chunks) { zip.set(c, p); p += c.length; }
     return zip;
   }
-  function downloadBlob(bytes, name, mime) {
-    const url = URL.createObjectURL(new Blob([bytes], { type: mime || "application/octet-stream" }));
-    const a = document.createElement("a"); a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  // ============================================================
+  // Merge multiple PDFs into one
+  // ============================================================
+  let mergeFiles = [];   // { name, bytes }[], in the order they'll be combined
+
+  function openMergeModal() {
+    mergeFiles = [];
+    renderMergeList();
+    $("mergeModal").hidden = false;
+  }
+  function closeMergeModal() { $("mergeModal").hidden = true; }
+
+  function renderMergeList() {
+    const list = $("mergeList");
+    list.innerHTML = "";
+    $("mergeEmpty").hidden = mergeFiles.length > 0;
+    mergeFiles.forEach((f, i) => {
+      const row = document.createElement("div"); row.className = "merge-row";
+      const num = document.createElement("span"); num.className = "merge-num"; num.textContent = (i + 1) + ".";
+      const name = document.createElement("span"); name.className = "merge-name"; name.textContent = f.name; name.title = f.name;
+      const size = document.createElement("span"); size.className = "merge-pages"; size.textContent = (f.bytes.length / 1024).toFixed(0) + " KB";
+      const actions = document.createElement("div"); actions.className = "range-actions";
+      const up = document.createElement("button"); up.className = "rowbtn"; up.title = "Move up"; up.disabled = i === 0;
+      up.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+      up.onclick = () => { [mergeFiles[i - 1], mergeFiles[i]] = [mergeFiles[i], mergeFiles[i - 1]]; renderMergeList(); };
+      const down = document.createElement("button"); down.className = "rowbtn"; down.title = "Move down"; down.disabled = i === mergeFiles.length - 1;
+      down.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+      down.onclick = () => { [mergeFiles[i + 1], mergeFiles[i]] = [mergeFiles[i], mergeFiles[i + 1]]; renderMergeList(); };
+      const rm = document.createElement("button"); rm.className = "rowbtn remove"; rm.title = "Remove";
+      rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+      rm.onclick = () => { mergeFiles.splice(i, 1); renderMergeList(); };
+      actions.append(up, down, rm);
+      row.append(num, name, size, actions);
+      list.appendChild(row);
+    });
+    $("mergeSummary").innerHTML = mergeFiles.length
+      ? "<strong>" + mergeFiles.length + (mergeFiles.length === 1 ? " file</strong>" : " files</strong>") + " will be combined, in this order"
+      : "Add at least 2 files to merge";
+    $("mergeGo").disabled = mergeFiles.length < 2;
+  }
+
+  async function addMergeFiles(fileList) {
+    for (const file of fileList) {
+      if (!/\.pdf$/i.test(file.name)) continue;
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        mergeFiles.push({ name: file.name, bytes });
+      } catch (e) { console.error("Couldn't read " + file.name, e); }
+    }
+    renderMergeList();
+  }
+
+  async function doMerge() {
+    if (mergeFiles.length < 2) return;
+    try {
+      busy(true, "Merging…");
+      await ensurePdflib();
+      const { PDFDocument } = PDFLib;
+      const out = await PDFDocument.create();
+      for (const f of mergeFiles) {
+        const src = await PDFDocument.load(f.bytes, { ignoreEncryption: true });
+        const idxs = src.getPages().map((_, i) => i);
+        const copied = await out.copyPages(src, idxs);
+        copied.forEach((pg) => out.addPage(pg));
+      }
+      const bytes = await out.save({ useObjectStreams: false });
+      const name = "Merged (" + mergeFiles.length + " files).pdf";
+      const saved = await saveFile(bytes, name, "application/pdf");
+      if (!saved) return;
+      closeMergeModal();
+      toast("Merged " + mergeFiles.length + " files into one PDF.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't merge these files — one may be damaged or password-protected.");
+    } finally { busy(false); }
+  }
+
+  function wireMergeModal() {
+    $("mergeBtn").onclick = openMergeModal;
+    $("mergeClose").onclick = closeMergeModal;
+    $("mergeCancel").onclick = closeMergeModal;
+    $("mergeAddBtn").onclick = () => $("mergeFileInput").click();
+    $("mergeFileInput").onchange = (e) => { addMergeFiles(e.target.files); e.target.value = ""; };
+    $("mergeGo").onclick = doMerge;
   }
 
   function wireSplitModal() {
