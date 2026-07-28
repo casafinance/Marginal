@@ -117,25 +117,38 @@ button{font-family:inherit}
 .mini-input:focus{outline:2px solid var(--brand);outline-offset:-1px}
 .btn.sm{padding:5px 10px;font-size:12px}
 .split-grid{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;user-select:none}
-.pchip{width:52px;height:66px;border-radius:8px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:3px;background:var(--panel-soft);
-  border:1px solid var(--stroke);border-top:3px solid var(--grp,#4a3ad9);font-size:13px;color:var(--text)}
-.pchip .pchip-doc{width:20px;height:24px;border:1.5px solid var(--text-soft);border-radius:2px;opacity:.5}
-.pchip .pchip-n{font-family:var(--font-mono);font-size:12px}
-.cutgap{width:26px;align-self:center;height:66px;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;position:relative}
-.cutgap::before{content:"";width:2px;height:52px;border-radius:2px;background:transparent;transition:background .12s}
-.cutgap:hover::before{background:var(--stroke)}
-.cutgap.cut::before{background:var(--danger,#e5484d);width:2px;border-left:2px dashed var(--danger,#e5484d);background:transparent}
-.cutgap .scissors{position:absolute;opacity:0;transition:opacity .12s;color:var(--danger,#e5484d);
-  background:var(--panel);border-radius:50%}
-.cutgap:hover .scissors{opacity:.6}
-.cutgap.cut .scissors{opacity:1}
-.cutgap .scissors svg{width:15px;height:15px;display:block}
+.range-list{display:flex;flex-direction:column;gap:8px;max-height:40vh;overflow:auto;padding-right:2px}
+.range-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+  background:var(--panel-soft);border:1px solid var(--stroke);border-left:4px solid var(--grp,#4a3ad9)}
+.range-row .dot{display:none}
+.range-label{font-size:13px;font-weight:600;color:var(--text);min-width:56px}
+.range-pages{font-size:13px;color:var(--text-soft);white-space:nowrap}
+.range-num{width:52px;height:28px;border:1px solid var(--line,#e3e3e8);border-radius:7px;
+  text-align:center;font-family:var(--font-mono);font-size:13px;background:#fff;color:var(--text)}
+.range-num:focus{outline:2px solid var(--brand);outline-offset:-1px}
+.range-num[readonly]{background:var(--panel-soft);color:var(--text-soft);cursor:default}
+.range-end{font-family:var(--font-mono);font-size:13px;color:var(--text-soft);min-width:52px;text-align:center}
+.range-count{margin-left:auto;font-size:11.5px;color:var(--text-soft);white-space:nowrap}
+.range-actions{display:flex;gap:4px}
+.rowbtn{width:26px;height:26px;border:1px solid var(--line,#e3e3e8);background:#fff;border-radius:6px;
+  color:var(--text-soft);cursor:pointer;display:grid;place-items:center;flex:none}
+.rowbtn:hover{background:var(--panel-soft);color:var(--text)}
+.rowbtn svg{width:14px;height:14px}
+.rowbtn.remove:hover{color:var(--danger,#e5484d);border-color:var(--danger,#e5484d)}
+
+.extract-block .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text-soft);display:block;margin-bottom:8px}
+.extract-row{display:flex;gap:8px}
+.extract-input{flex:1;height:36px;border:1px solid var(--line,#e3e3e8);border-radius:9px;
+  padding:0 12px;font-family:var(--font-mono);font-size:13.5px;background:#fff;color:var(--text)}
+.extract-input:focus{outline:2px solid var(--brand);outline-offset:-1px}
+.extract-status{margin-top:7px;font-size:12px;color:var(--text-soft);line-height:1.5}
+.extract-status.ok{color:#178a4c}
+.extract-status.warn{color:#b8790a}
+.extract-status.err{color:var(--danger,#e5484d)}
+.split-or{display:flex;align-items:center;gap:10px;margin:18px 0 16px;color:var(--text-soft);font-size:12px}
+.split-or::before,.split-or::after{content:"";flex:1;height:1px;background:var(--stroke)}
 .split-summary{font-size:13px;color:var(--text);flex:1;line-height:1.5}
-.split-summary .parts{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:4px}
-.split-summary .part{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-soft)}
-.split-summary .dot{width:9px;height:9px;border-radius:50%;background:var(--grp,#4a3ad9);flex:none}
 .sheet-foot .split-summary{margin-right:auto}
 
 /* ---------- Toolbar ---------- */
@@ -562,14 +575,25 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </button>
     </div>
     <div class="split-body">
-      <p class="split-hint">Click the gaps between pages to cut, or use a quick preset. Each colored group becomes its own PDF.</p>
+      <div class="extract-block">
+        <div class="lbl">Extract specific pages</div>
+        <div class="extract-row">
+          <input id="extractInput" type="text" class="extract-input" placeholder="e.g. 1,2,4-8,9,20" autocomplete="off" spellcheck="false">
+          <button class="btn primary sm" id="extractGo" disabled>Extract as one PDF</button>
+        </div>
+        <div class="extract-status" id="extractStatus">Comma-separated page numbers and ranges — only those pages, in that order, go into the download.</div>
+      </div>
+
+      <div class="split-or"><span>or split into multiple files</span></div>
+
+      <p class="split-hint">Pick how to divide the document — each row becomes its own PDF.</p>
       <div class="split-presets">
         <span class="lbl">Quick:</span>
         <span class="preset-grp">every <input id="splitEveryN" class="mini-input" inputmode="numeric" value="1"> pages <button class="btn ghost sm" id="splitEveryApply">Apply</button></span>
         <span class="preset-grp"><input id="splitEqualN" class="mini-input" inputmode="numeric" value="2"> equal parts <button class="btn ghost sm" id="splitEqualApply">Apply</button></span>
-        <button class="btn ghost sm" id="splitClear">Clear cuts</button>
+        <button class="btn ghost sm" id="splitClear">Reset to 1 file</button>
       </div>
-      <div class="split-grid" id="splitGrid"></div>
+      <div class="range-list" id="splitRanges"></div>
     </div>
     <div class="sheet-foot">
       <div class="split-summary" id="splitSummary"></div>
@@ -2590,56 +2614,183 @@ input[type=range]{accent-color:var(--brand);width:110px}
     return groups;                 // array of [firstIdx, lastIdx] inclusive, 0-based
   }
 
-  function groupOfPage(idx) {
-    let g = 0;
-    for (let i = 0; i < idx; i++) if (splitCuts.has(i)) g++;
-    return g;
+  // ============================================================
+  // Extract specific pages (print-dialog syntax: "1,2,4-8,9,20")
+  // ============================================================
+  // Order and duplicates are preserved exactly as typed — "5,1,2" outputs page 5 first,
+  // then 1, then 2; "3,3" outputs page 3 twice. Returns 0-indexed page numbers.
+  function parsePageList(str, total) {
+    const indices = [], errors = [];
+    const tokens = str.split(",").map((t) => t.trim()).filter(Boolean);
+    for (const tok of tokens) {
+      let m;
+      if ((m = tok.match(/^(\d+)$/))) {
+        const n = +m[1];
+        if (n < 1 || n > total) errors.push(tok);
+        else indices.push(n - 1);
+      } else if ((m = tok.match(/^(\d+)-(\d+)$/))) {
+        const a = +m[1], b = +m[2];
+        if (a < 1 || b > total || a > b) errors.push(tok);
+        else for (let n = a; n <= b; n++) indices.push(n - 1);
+      } else {
+        errors.push(tok);
+      }
+    }
+    return { indices, errors, tokens };
+  }
+
+  function updateExtractStatus() {
+    const str = $("extractInput").value;
+    const status = $("extractStatus");
+    const go = $("extractGo");
+    status.classList.remove("ok", "warn", "err");
+    if (!str.trim()) {
+      status.textContent = "Comma-separated page numbers and ranges — only those pages, in that order, go into the download.";
+      go.disabled = true;
+      return;
+    }
+    const { indices, errors } = parsePageList(str, S.pages.length);
+    if (!indices.length) {
+      status.classList.add("err");
+      status.textContent = errors.length ? "Not a valid page list — try something like 1,2,4-8,9,20" : "No pages selected yet.";
+      go.disabled = true;
+      return;
+    }
+    const n = indices.length;
+    if (errors.length) {
+      status.classList.add("warn");
+      status.textContent = n + (n === 1 ? " page" : " pages") + " selected — ignoring " + errors.map((e) => `"${e}"`).join(", ") + " (not on this " + S.pages.length + "-page document).";
+    } else {
+      status.classList.add("ok");
+      status.textContent = n + (n === 1 ? " page" : " pages") + " will be extracted, in that order.";
+    }
+    go.disabled = false;
+  }
+
+  async function doExtract() {
+    const { indices } = parsePageList($("extractInput").value, S.pages.length);
+    if (!indices.length) return;
+    try {
+      busy(true, "Extracting…");
+      await ensurePdflib();
+      const { bytes } = await buildPdfBytes();   // start from the edited/flattened document
+      const { PDFDocument } = PDFLib;
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const out = await PDFDocument.create();
+      const copied = await out.copyPages(src, indices);
+      copied.forEach((pg) => out.addPage(pg));
+      const outBytes = await out.save({ useObjectStreams: false });
+      const base = S.fileName.replace(/\.pdf$/i, "");
+      const n = indices.length;
+      downloadBlob(outBytes, base + " (" + n + (n === 1 ? " page" : " pages") + " extracted).pdf", "application/pdf");
+      closeSplitModal();
+      toast("Extracted " + n + (n === 1 ? " page" : " pages") + ".");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't extract those pages.");
+    } finally { busy(false); }
   }
 
   function openSplitModal() {
     if (!S.pages.length) return;
     splitCuts = new Set();
-    renderSplitGrid();
-    renderSplitSummary();
+    $("extractInput").value = "";
+    updateExtractStatus();
+    renderSplit();
     $("splitModal").hidden = false;
   }
   function closeSplitModal() { $("splitModal").hidden = true; }
 
-  function renderSplitGrid() {
-    const grid = $("splitGrid");
-    grid.innerHTML = "";
-    const M = S.pages.length;
-    for (let i = 0; i < M; i++) {
-      const chip = document.createElement("div");
-      chip.className = "pchip";
-      chip.style.setProperty("--grp", SPLIT_COLORS[groupOfPage(i) % SPLIT_COLORS.length]);
-      const doc = document.createElement("div"); doc.className = "pchip-doc";
-      const n = document.createElement("div"); n.className = "pchip-n"; n.textContent = i + 1;
-      chip.append(doc, n);
-      grid.appendChild(chip);
-      if (i < M - 1) {
-        const gap = document.createElement("div");
-        gap.className = "cutgap" + (splitCuts.has(i) ? " cut" : "");
-        gap.title = "Cut here";
-        gap.innerHTML = '<span class="scissors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.5 15.5M14.5 14.5 20 20M8.5 8.5 12 12"/></svg></span>';
-        gap.onclick = () => { if (splitCuts.has(i)) splitCuts.delete(i); else splitCuts.add(i); renderSplitGrid(); renderSplitSummary(); };
-        grid.appendChild(gap);
+  function renderSplit() { renderSplitRanges(); renderSplitSummary(); }
+
+  // The list scales with the number of PARTS you want, not the number of pages — so it
+  // stays a short, glanceable list whether the document is 5 pages or 5,000.
+  function renderSplitRanges() {
+    const list = $("splitRanges");
+    list.innerHTML = "";
+    const groups = splitGroups();
+    const total = S.pages.length;
+    groups.forEach((g, k) => {
+      const [from, to] = g;             // 0-indexed, inclusive
+      const isLast = k === groups.length - 1;
+      const row = document.createElement("div");
+      row.className = "range-row";
+      row.style.setProperty("--grp", SPLIT_COLORS[k % SPLIT_COLORS.length]);
+
+      const label = document.createElement("span"); label.className = "range-label"; label.textContent = "Part " + (k + 1);
+      const pages = document.createElement("span"); pages.className = "range-pages"; pages.textContent = "Pages";
+      const fromInp = document.createElement("input");
+      fromInp.className = "range-num"; fromInp.readOnly = true; fromInp.tabIndex = -1;
+      fromInp.value = String(from + 1);
+      const dash = document.createElement("span"); dash.className = "range-pages"; dash.textContent = "–";
+
+      let toEl;
+      if (isLast) {
+        toEl = document.createElement("span"); toEl.className = "range-end"; toEl.textContent = total + " (end)";
+      } else {
+        toEl = document.createElement("input");
+        toEl.className = "range-num"; toEl.type = "number"; toEl.min = String(from + 1); toEl.max = String(total);
+        toEl.value = String(to + 1);
+        toEl.addEventListener("change", () => { setBoundary(k, parseInt(toEl.value, 10)); });
+        toEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); toEl.blur(); } });
       }
-    }
+
+      const count = document.createElement("span"); count.className = "range-count";
+      const n = to - from + 1; count.textContent = n + (n === 1 ? " page" : " pages");
+
+      const actions = document.createElement("div"); actions.className = "range-actions";
+      const splitBtn = document.createElement("button"); splitBtn.className = "rowbtn"; splitBtn.title = "Split this part in two";
+      splitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+      splitBtn.disabled = n < 2;
+      splitBtn.onclick = () => splitRow(k);
+      actions.appendChild(splitBtn);
+      if (k > 0) {
+        const rmBtn = document.createElement("button"); rmBtn.className = "rowbtn remove"; rmBtn.title = "Merge with the part above";
+        rmBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+        rmBtn.onclick = () => mergeUp(k);
+        actions.appendChild(rmBtn);
+      }
+
+      row.append(label, pages, fromInp, dash, toEl, count, actions);
+      list.appendChild(row);
+    });
+  }
+
+  // Move the boundary between part k and part k+1 to end at 1-based page `newTo1`.
+  // Clamped so both neighboring parts always keep at least one page.
+  function setBoundary(k, newTo1) {
+    if (!isFinite(newTo1)) { renderSplitRanges(); return; }
+    const groups = splitGroups();
+    const g = groups[k], nxt = groups[k + 1];
+    if (!nxt) return;
+    const minB = g[0], maxB = nxt[1] - 1;
+    const clamped = Math.max(minB, Math.min(maxB, newTo1 - 1));
+    splitCuts.delete(g[1]);
+    splitCuts.add(clamped);
+    renderSplit();
+  }
+  // Bisect part k into two parts.
+  function splitRow(k) {
+    const groups = splitGroups();
+    const g = groups[k];
+    if (g[1] - g[0] < 1) return;   // a single-page part can't be split further
+    splitCuts.add(g[0] + Math.floor((g[1] - g[0]) / 2));
+    renderSplit();
+  }
+  // Merge part k into the part above it (removes the boundary before it).
+  function mergeUp(k) {
+    const groups = splitGroups();
+    if (k === 0) return;
+    splitCuts.delete(groups[k - 1][1]);
+    renderSplit();
   }
 
   function renderSplitSummary() {
     const groups = splitGroups();
     const sum = $("splitSummary");
-    const rangeText = (g) => g[0] === g[1] ? ("page " + (g[0] + 1)) : ("pages " + (g[0] + 1) + "–" + (g[1] + 1));
-    let html = "<strong>" + groups.length + (groups.length === 1 ? " file</strong> (no cuts yet — click a gap above)" : " files</strong>");
-    html += '<div class="parts">';
-    groups.forEach((g, k) => {
-      const c = SPLIT_COLORS[k % SPLIT_COLORS.length];
-      html += '<span class="part"><span class="dot" style="background:' + c + '"></span>Part ' + (k + 1) + ": " + rangeText(g) + "</span>";
-    });
-    html += "</div>";
-    sum.innerHTML = html;
+    sum.innerHTML = groups.length < 2
+      ? "<strong>1 file</strong> — click the + on a part to split it, or use a preset above"
+      : "<strong>" + groups.length + " files</strong> when you split";
     $("splitGo").disabled = groups.length < 2;
     $("splitGo").textContent = groups.length < 2 ? "Split & download" : ("Split into " + groups.length + " files");
   }
@@ -2649,7 +2800,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (!isFinite(n) || n < 1) return;
     splitCuts = new Set();
     for (let i = 0; i < S.pages.length - 1; i++) if ((i + 1) % n === 0) splitCuts.add(i);
-    renderSplitGrid(); renderSplitSummary();
+    renderSplit();
   }
   function applyEqualN() {
     const parts = parseInt($("splitEqualN").value, 10);
@@ -2663,7 +2814,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       acc += base + (k < extra ? 1 : 0);
       if (acc >= 1 && acc <= M - 1) splitCuts.add(acc - 1);
     }
-    renderSplitGrid(); renderSplitSummary();
+    renderSplit();
   }
 
   async function doSplit() {
@@ -2735,7 +2886,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("splitGo").onclick = doSplit;
     $("splitEveryApply").onclick = applyEveryN;
     $("splitEqualApply").onclick = applyEqualN;
-    $("splitClear").onclick = () => { splitCuts = new Set(); renderSplitGrid(); renderSplitSummary(); };
+    $("splitClear").onclick = () => { splitCuts = new Set(); renderSplit(); };
+    $("extractInput").addEventListener("input", updateExtractStatus);
+    $("extractInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("extractGo").disabled) { e.preventDefault(); doExtract(); } });
+    $("extractGo").onclick = doExtract;
   }
 
   function initDesktop() {
