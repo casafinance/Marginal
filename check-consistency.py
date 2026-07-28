@@ -20,10 +20,10 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).parent
-cargo = (root / "src-tauri" / "Cargo.toml").read_text()
-lib = (root / "src-tauri" / "src" / "lib.rs").read_text()
-caps = json.loads((root / "src-tauri" / "capabilities" / "default.json").read_text())
-ui = (root / "ui" / "index.html").read_text()
+cargo = (root / "src-tauri" / "Cargo.toml").read_text(encoding="utf-8")
+lib = (root / "src-tauri" / "src" / "lib.rs").read_text(encoding="utf-8")
+caps = json.loads((root / "src-tauri" / "capabilities" / "default.json").read_text(encoding="utf-8"))
+ui = (root / "ui" / "index.html").read_text(encoding="utf-8")
 
 problems = []
 warnings = []
@@ -50,9 +50,9 @@ for c in sorted(registered - invoked):
 
 # versions must agree, or the updater won't recognise a new release as newer
 vers = {
-    "tauri.conf.json": json.loads((root / "src-tauri" / "tauri.conf.json").read_text())["version"],
+    "tauri.conf.json": json.loads((root / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))["version"],
     "Cargo.toml": re.search(r'^version\s*=\s*"([^"]+)"', cargo, re.M).group(1),
-    "package.json": json.loads((root / "package.json").read_text())["version"],
+    "package.json": json.loads((root / "package.json").read_text(encoding="utf-8"))["version"],
 }
 if len(set(vers.values())) != 1:
     problems.append(f"version mismatch across files: {vers}")
