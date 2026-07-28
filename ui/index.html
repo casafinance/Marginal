@@ -1950,6 +1950,28 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ============================================================
   // Export (flatten edits into a PDF) + Preview
   // ============================================================
+  // Removes every form-field widget annotation from every page, and drops the AcroForm
+  // entry entirely — a guaranteed "no interactive fields remain" pass that works even on
+  // PDFs whose widgets are missing the page back-reference pdf-lib's flatten() needs.
+  function stripFormFields(pdf) {
+    const { PDFName, PDFArray } = PDFLib;
+    for (const page of pdf.getPages()) {
+      const annotsRef = page.node.get(PDFName.of("Annots"));
+      if (!annotsRef) continue;
+      const annots = pdf.context.lookupMaybe(annotsRef, PDFArray) || (annotsRef instanceof PDFArray ? annotsRef : null);
+      if (!annots) continue;
+      const kept = [];
+      for (let i = 0; i < annots.size(); i++) {
+        const ref = annots.get(i);
+        const dict = pdf.context.lookup(ref);
+        const subtype = dict && dict.get && dict.get(PDFName.of("Subtype"));
+        if (!(subtype && subtype.encodedName === "/Widget")) kept.push(ref);
+      }
+      if (kept.length !== annots.size()) page.node.set(PDFName.of("Annots"), pdf.context.obj(kept));
+    }
+    pdf.catalog.delete(PDFName.of("AcroForm"));
+  }
+
   async function buildPdfBytes(opts) {
     opts = opts || {};
     await ensurePdflib();                  // export library (loaded lazily, not at startup)
@@ -1958,8 +1980,21 @@ input[type=range]{accent-color:var(--brand);width:110px}
     // "Download flattened": bake the PDF's interactive form fields (fillable boxes,
     // checkboxes, dropdowns) into static page content so nothing stays editable.
     // Done before our own marks so those still sit on top.
+    // "Download flattened": remove the PDF's interactive form fields (fillable boxes,
+    // checkboxes, dropdowns) so nothing stays editable. Tries pdf-lib's own flatten()
+    // first (it correctly bakes in each field's real value when the PDF is well-formed),
+    // then ALWAYS runs a direct removal pass afterward as a guarantee — some third-party
+    // form-filling tools produce widgets missing their page back-reference, which makes
+    // pdf-lib's flatten() throw on every field with no visible error. The direct pass
+    // doesn't depend on that reference, so it removes the fields either way.
     if (opts.flatten) {
-      try { const form = pdf.getForm(); form.flatten(); } catch (_) { /* no form, or nothing to flatten */ }
+      let form = null;
+      try { form = pdf.getForm(); } catch (e) { console.error("getForm() failed:", e && e.message); }
+      if (form) {
+        try { form.flatten(); }
+        catch (e) { console.error("form.flatten() failed, falling back to direct field removal:", e && e.message); }
+      }
+      try { stripFormFields(pdf); } catch (e) { console.error("direct field removal failed:", e && e.message); }
     }
     const STD = {
       "Helvetica": StandardFonts.Helvetica, "Helvetica-Bold": StandardFonts.HelveticaBold,
