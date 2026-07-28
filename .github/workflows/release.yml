@@ -112,6 +112,10 @@ jobs:
         with:
           ref: ${{ steps.ref.outputs.tag }}
 
+      - name: Preflight config check (fails in seconds, before the slow Rust build)
+        shell: bash
+        run: python check-consistency.py
+
       - name: Speed up the build (Windows Defender scans every file Rust writes otherwise)
         shell: powershell
         run: |
