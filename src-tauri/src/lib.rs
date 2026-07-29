@@ -13,9 +13,12 @@ struct OpenedFile(Mutex<Option<String>>);
 struct PendingUpdate(Mutex<Option<tauri_plugin_updater::Update>>);
 
 /// Pull the first `.pdf` path out of a set of command-line args, if any.
-fn first_pdf(args: &[String]) -> Option<String> {
+fn first_openable_file(args: &[String]) -> Option<String> {
     args.iter()
-        .find(|a| a.to_lowercase().ends_with(".pdf"))
+        .find(|a| {
+            let lower = a.to_lowercase();
+            lower.ends_with(".pdf") || lower.ends_with(".docx")
+        })
         .cloned()
 }
 
@@ -67,22 +70,35 @@ fn b64_decode(s: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-/// Read a PDF file into a JSON payload the frontend can load: { name, b64 }.
-fn read_pdf(path: &str) -> Option<serde_json::Value> {
+/// Read a file the app was asked to open into a JSON payload the frontend can load:
+/// { name, b64 }. A .docx is converted to PDF first — the frontend's launch-time load
+/// path only ever expects PDF bytes back, same as every other path into the app.
+fn read_openable_file(path: &str) -> Option<serde_json::Value> {
+    let is_docx = path.to_lowercase().ends_with(".docx");
     let bytes = std::fs::read(path).ok()?;
-    let name = std::path::Path::new(path)
-        .file_name()
+    let stem = std::path::Path::new(path)
+        .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("document.pdf")
+        .unwrap_or("document")
         .to_string();
-    Some(serde_json::json!({ "name": name, "b64": b64_encode(&bytes) }))
+    if is_docx {
+        let pdf_bytes = convert_docx_bytes(&stem, &bytes).ok()?;
+        Some(serde_json::json!({ "name": format!("{}.pdf", stem), "b64": b64_encode(&pdf_bytes) }))
+    } else {
+        let name = std::path::Path::new(path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("document.pdf")
+            .to_string();
+        Some(serde_json::json!({ "name": name, "b64": b64_encode(&bytes) }))
+    }
 }
 
 /// Frontend calls this once on startup to get the file we were opened with (if any).
 #[tauri::command]
 fn take_opened_pdf(state: tauri::State<OpenedFile>) -> Option<serde_json::Value> {
     let path = state.0.lock().ok()?.take()?;
-    read_pdf(&path)
+    read_openable_file(&path)
 }
 
 /// Opens Windows' own "How do you want to open this file?" dialog, scoped to .pdf.
@@ -258,28 +274,21 @@ fn run_with_timeout(cmd: &mut std::process::Command, timeout: std::time::Duratio
     }
 }
 
-/// Converts a .docx to PDF via Word's own COM automation (the standard way to script
-/// Word — it has no command-line export flag the way LibreOffice does). Hardened
+/// Converts docx bytes to PDF bytes via Word's own COM automation (the standard way to
+/// script Word — it has no command-line export flag the way LibreOffice does). Hardened
 /// against the specific things that make Word automation hang waiting for a click that
 /// will never come: DisplayAlerts is off, format-conversion confirmation is off, and the
-/// document is closed without prompting to save. Everything happens in a fresh temp
-/// folder that's cleaned up afterward either way.
-#[tauri::command]
-fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, String> {
-    let bytes = b64_decode(&b64)?;
+/// document is closed without prompting to save. Shared by both the in-app "Insert/Open
+/// docx" flow (bytes arrive from JS) and double-click / "Open With" (bytes are read from
+/// the launch path) — same conversion either way, just a different bytes source.
+fn convert_docx_bytes(stem: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
     let work_dir = std::env::temp_dir().join(format!("marginal-convert-{}", std::process::id()));
     std::fs::create_dir_all(&work_dir).map_err(|e| e.to_string())?;
-
-    let stem = std::path::Path::new(&name)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("document")
-        .to_string();
     let input_path = work_dir.join(format!("{}.docx", stem));
     let output_path = work_dir.join(format!("{}.pdf", stem));
     let cleanup = || { let _ = std::fs::remove_dir_all(&work_dir); };
 
-    if let Err(e) = std::fs::write(&input_path, &bytes) {
+    if let Err(e) = std::fs::write(&input_path, bytes) {
         cleanup();
         return Err(e.to_string());
     }
@@ -310,22 +319,34 @@ fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, S
         Ok(b) => b,
         Err(e) => { cleanup(); return Err(e.to_string()); }
     };
-    let result = serde_json::json!({ "name": format!("{}.pdf", stem), "b64": b64_encode(&pdf_bytes) });
     cleanup();
-    Ok(result)
+    Ok(pdf_bytes)
+}
+
+#[tauri::command]
+fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, String> {
+    let bytes = b64_decode(&b64)?;
+    let stem = std::path::Path::new(&name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("document")
+        .to_string();
+    let pdf_bytes = convert_docx_bytes(&stem, &bytes)?;
+    Ok(serde_json::json!({ "name": format!("{}.pdf", stem), "b64": b64_encode(&pdf_bytes) }))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Path of the PDF this launch was asked to open (double-click in Explorer, etc.)
-    let launched_with = first_pdf(&std::env::args().collect::<Vec<_>>());
+    // Path of the file this launch was asked to open (double-click in Explorer, "Open
+    // With", etc.) — a .docx is converted to PDF automatically, same as every other path.
+    let launched_with = first_openable_file(&std::env::args().collect::<Vec<_>>());
 
     tauri::Builder::default()
-        // If Marginal is already running and Windows opens another PDF with it,
+        // If Marginal is already running and Windows opens another file with it,
         // that second launch forwards its args here instead of starting a new window.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            if let Some(path) = first_pdf(&argv) {
-                if let Some(payload) = read_pdf(&path) {
+            if let Some(path) = first_openable_file(&argv) {
+                if let Some(payload) = read_openable_file(&path) {
                     let _ = app.emit("open-pdf", payload);
                 }
             }
