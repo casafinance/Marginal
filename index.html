@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#ffffff">
 <title>Marginal — edit PDFs in your browser</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="vendor/pdf.min.js" as="script">
+<link rel="preload" href="vendor/pdf.worker.min.js" as="script">
 <style>
+
 /* ============================================================
    Marginal — a browser PDF editor
    Identity: "digital stationery". Tools behave like real desk
@@ -470,9 +474,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
   *{animation:none !important;transition:none !important;scroll-behavior:auto !important}
 }
 
+
 </style>
-<link rel="preload" href="vendor/pdf.min.js" as="script">
-<link rel="preload" href="vendor/pdf.worker.min.js" as="script">
 </head>
 <body>
 <div class="app">
@@ -862,6 +865,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     </div>
   </div>
 </div>
+
 
 <script>window.__MARGINAL_LIBS__ = {
   mode: 'url',
@@ -3984,6 +3988,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   else init();
   initDesktop();
 })();
+
 
 </script>
 </body>
