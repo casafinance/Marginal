@@ -542,7 +542,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
           </button>
         </div>
       </div>
-      <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple class="hidden">
+      <input type="file" id="fileInput" accept="application/pdf,.pdf,.docx" multiple class="hidden">
     </div>
   </header>
 
@@ -1159,10 +1159,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
     ["dragleave", "drop"].forEach((ev) => ws.addEventListener(ev, (e) => { stop(e); dz && dz.classList.remove("hot"); }));
     ws.addEventListener("drop", (e) => {
       const files = filesFromDrop(e.dataTransfer);
-      const pdfs = files.filter((f) => f && /\.pdf$/i.test(f.name));
       if (!files.length) return;   // some drag sources (e.g. certain Outlook/OLE attachments)
                                     // don't expose a readable file to the browser at all —
                                     // nothing we can do at the web layer for those.
+      if (files.length === 1 && /\.docx$/i.test(files[0].name)) { loadFile(files[0]); return; }
+      const pdfs = files.filter((f) => f && /\.pdf$/i.test(f.name));
       if (!pdfs.length) { toast("That's not a PDF file."); return; }
       if (pdfs.length === 1) { loadFile(pdfs[0]); return; }
       // Multiple PDFs dropped at once — feed them straight into Merge instead of only
@@ -1489,7 +1490,30 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ============================================================
   // Load + render
   // ============================================================
+  // Word documents can't be rendered here directly (that's what pdf.js is for, and
+  // there's no equivalent for docx in the browser) — on desktop, this hands the file to
+  // whichever of Word or LibreOffice is actually installed and asks it to export a real
+  // PDF, then loads that PDF exactly the normal way. Not available in the browser build
+  // at all: there's no OS to shell out to from inside a webpage.
+  async function loadDocxFile(file) {
+    const T = window.__TAURI__;
+    if (!T) { toast("Word documents need the desktop app — this browser version only opens PDFs."); return; }
+    try {
+      busy(true, "Converting from Word (this can take a moment)…");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const result = await T.core.invoke("convert_docx_to_pdf", { name: file.name, b64: _b64EncodeU8(bytes) });
+      const pdfFile = new File([_bytesOfB64(result.b64)], result.name, { type: "application/pdf" });
+      busy(false);
+      return loadFile(pdfFile);   // now it's a normal PDF — reuses the exact same, already-tested path
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't convert that Word document: " + (e && e.message ? e.message : e));
+      busy(false);
+    }
+  }
+
   async function loadFile(file) {
+    if (/\.docx$/i.test(file.name)) return loadDocxFile(file);
     const doc = newTab();   // every open (Open button, drag-drop, double-click-to-open) is its own tab
     doc.fileName = file.name || "document.pdf";
     renderTabs();
