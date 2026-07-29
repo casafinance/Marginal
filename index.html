@@ -971,6 +971,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       thumbsHost: null,  // same idea, for the thumbnail sidebar
       thumbIo: null,
       thumbsOpen: false,
+      filePath: null,   // real on-disk path, when we have one (desktop native Open dialog only)
       annots: [],
       undo: [],
       redo: [],
@@ -1150,7 +1151,20 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("redoBtn").onclick = redo;
   }
 
-  function pickFile() { $("fileInput").click(); }
+  async function pickFile() {
+    const T = window.__TAURI__;
+    if (!T) { $("fileInput").click(); return; }
+    try {
+      const results = await T.core.invoke("open_files_dialog");
+      for (const r of results) {
+        const f = new File([_bytesOfB64(r.b64)], r.name, { type: "application/octet-stream" });
+        loadFile(f, r.path);   // not awaited — same "each opens its own tab" pattern as the file input
+      }
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't open that file.");
+    }
+  }
 
   function wireDrop() {
     const dz = $("drop"), ws = $("workspace");
@@ -1511,10 +1525,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
     }
   }
 
-  async function loadFile(file) {
+  async function loadFile(file, filePath) {
     if (/\.docx$/i.test(file.name)) return loadDocxFile(file);
     const doc = newTab();   // every open (Open button, drag-drop, double-click-to-open) is its own tab
     doc.fileName = file.name || "document.pdf";
+    doc.filePath = filePath || null;
     renderTabs();
     try {
       busy(true);
