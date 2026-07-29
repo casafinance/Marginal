@@ -256,6 +256,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
 /* ---------- Workspace ---------- */
 .workspaceRow{flex:1;display:flex;min-height:0;overflow:hidden}
 .workspace{flex:1;overflow:auto;position:relative;scroll-behavior:smooth}
+/* Both scroll rails get identical thickness/track/thumb styling. Thumb *length* will
+   still differ between them — that's correct, it reflects how much each panel actually
+   has to scroll — but thickness and appearance should always match. */
+.workspace::-webkit-scrollbar, .thumbSidebar::-webkit-scrollbar{width:12px}
+.workspace::-webkit-scrollbar-track, .thumbSidebar::-webkit-scrollbar-track{background:transparent}
+.workspace::-webkit-scrollbar-thumb, .thumbSidebar::-webkit-scrollbar-thumb{
+  background:var(--stroke);border-radius:7px;border:3px solid transparent;background-clip:padding-box}
+.workspace::-webkit-scrollbar-thumb:hover, .thumbSidebar::-webkit-scrollbar-thumb:hover{background:var(--text-soft)}
 .thumbSidebar{width:168px;flex:none;border-right:1px solid var(--stroke);background:var(--panel);
   overflow-y:auto;overflow-x:hidden}
 .thumbSidebar[hidden]{display:none}
@@ -269,6 +277,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
   background:#fff;border-radius:2px}
 .thumbCard .thumbLabel{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-soft)}
 .thumbCard.current .thumbLabel{color:var(--text);font-weight:600}
+.thumbCard.dragging{opacity:.4}
+.thumbCard.dragOver{border-color:var(--brand);background:var(--panel-soft)}
 .thumbMoveBtns{display:flex;gap:2px}
 .thumbMoveBtns button{width:16px;height:16px;border:none;background:transparent;color:var(--text-soft);
   border-radius:4px;display:grid;place-items:center;cursor:pointer}
@@ -584,6 +594,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
         Undo
       </button>
+      <button class="btn ghost iconly" id="redoBtn" disabled title="Redo (⌘/Ctrl+Shift+Z)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3"/></svg>
+      </button>
       <div class="divider"></div>
       <div class="pagenav" id="pageNav" title="Go to page">
         <button class="zbtn" id="pagePrev" title="Previous page">
@@ -609,6 +622,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <button class="zbtn" id="deletePageBtn" disabled title="Delete this page">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 11h6"/></svg>
         </button>
+        <button class="zbtn" id="insertImageBtn" disabled title="Insert an image (PNG/JPG) as a new page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17 4.5-4.5c.8-.8 2-.8 2.8 0L18 18"/></svg>
+        </button>
+        <input type="file" id="insertImageInput" accept="image/png,image/jpeg,.png,.jpg,.jpeg" class="hidden">
       </div>
       <div class="divider"></div>
       <div class="zoom">
@@ -688,6 +705,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <div class="shortcuts-col">
         <div class="shortcuts-group">Editing</div>
         <div class="shortcuts-row"><span>Undo</span><kbd>⌘/Ctrl Z</kbd></div>
+        <div class="shortcuts-row"><span>Redo</span><kbd>⌘/Ctrl Shift Z</kbd></div>
         <div class="shortcuts-row"><span>Copy selected mark</span><kbd>⌘/Ctrl C</kbd></div>
         <div class="shortcuts-row"><span>Paste mark</span><kbd>⌘/Ctrl V</kbd></div>
         <div class="shortcuts-row"><span>Delete selected mark</span><kbd>Delete</kbd></div>
@@ -955,6 +973,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       thumbsOpen: false,
       annots: [],
       undo: [],
+      redo: [],
       sel: null,
       dirty: false,
       io: null,
@@ -1016,6 +1035,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
       $("empty").classList.remove("hidden");
       $("thumbSidebar").hidden = true;
       setToolbarEnabled(false);
+      $("undoBtn").disabled = true;
+      $("redoBtn").disabled = true;
       buildContext();
       return;
     }
@@ -1032,13 +1053,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
     refreshPageTotal();
     updateZoomUI();
     $("undoBtn").disabled = S.undo.length === 0;
+    $("redoBtn").disabled = S.redo.length === 0;
     buildContext();
     document.querySelectorAll(".tool").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === S.tool)));
     $("workspace").className = "workspace tool-" + S.tool;
   }
 
   function setToolbarEnabled(on) {
-    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn", "deletePageBtn", "thumbsBtn"].forEach((id) => { $(id).disabled = !on; });
+    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn", "deletePageBtn", "thumbsBtn", "insertImageBtn"].forEach((id) => { $(id).disabled = !on; });
   }
 
   async function switchToTab(i) {
@@ -1075,6 +1097,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   let uid = 1;
+  let _dragFromIdx = null;   // thumbnail drag-and-drop reorder state
   const nid = () => "a" + uid++;
 
   // ============================================================
@@ -1124,6 +1147,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("previewClose").onclick = closePreview;
     $("previewDownload").onclick = () => { if (S._previewBytes) saveFile(S._previewBytes, outName(), "application/pdf"); };
     $("undoBtn").onclick = undo;
+    $("redoBtn").onclick = redo;
   }
 
   function pickFile() { $("fileInput").click(); }
@@ -1489,6 +1513,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         clearOcrStatus();
         setToolbarEnabled(true);
         $("undoBtn").disabled = true;
+        $("redoBtn").disabled = true;
         $("empty").classList.add("hidden");
         await buildPages();
         showPagesHostFor(doc);
@@ -1635,6 +1660,55 @@ input[type=range]{accent-color:var(--brand);width:110px}
     } finally { busy(false); }
   }
 
+  // Inserts a PNG/JPEG as a new page — same "structural edit, outside Ctrl+Z" category
+  // as Insert Blank Page, for the same reason (it changes the page count). The new
+  // page's width matches the current page (so it lines up with the rest of the
+  // document); its height comes from the image's own aspect ratio, so nothing gets
+  // stretched or cropped.
+  async function insertImagePage(file) {
+    if (!S.pdf || !file) return;
+    const isPng = /png$/i.test(file.type) || /\.png$/i.test(file.name);
+    const isJpg = /jpe?g$/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+    if (!isPng && !isJpg) { toast("Please choose a PNG or JPEG image."); return; }
+    const idx = currentPageIdx();
+    try {
+      busy(true, "Inserting image…");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bitmap = await createImageBitmap(new Blob([bytes]));
+      const imgW = bitmap.width, imgH = bitmap.height;
+      if (bitmap.close) bitmap.close();
+      if (!imgW || !imgH) throw new Error("couldn't read that image's dimensions");
+      await ensurePdflib();
+      const { PDFDocument } = PDFLib;
+      const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+      const ref = S.pages[idx];
+      const pageW = ref.wPts;
+      const pageH = pageW * (imgH / imgW);
+      const newPage = pdf.insertPage(idx + 1, [pageW, pageH]);
+      const img = isPng ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+      newPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
+      const newBytes = await pdf.save({ useObjectStreams: false });
+      S.bytes = newBytes;
+      const newDoc = await pdfjsLib.getDocument({ data: newBytes.slice(0) }).promise;
+      S.pdf = newDoc;
+      S.annots.forEach((a) => { if (a.page > idx) a.page += 1; });
+      S.sel = null;
+      if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }
+      invalidateThumbs();
+      await buildPages();
+      showPagesHostFor(S);
+      layout();
+      refreshPageTotal();
+      markDirty();
+      if (S.thumbsOpen) buildThumbs();
+      goToPage(idx + 2);
+      toast("Inserted the image as a new page after page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't insert that image.");
+    } finally { busy(false); }
+  }
+
   async function deletePage() {
     if (!S.pdf) return;
     if (S.pages.length <= 1) { toast("Can't delete the only page in the document."); return; }
@@ -1726,6 +1800,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const card = document.createElement("div");
       card.className = "thumbCard"; card.dataset.idx = idx;
       const canvas = document.createElement("canvas");
+      const THUMB_W = 130;
+      const aspect = (rec.hPts || 792) / (rec.wPts || 612);
+      canvas.style.width = THUMB_W + "px";
+      canvas.style.height = Math.round(THUMB_W * aspect) + "px";   // matches the real render exactly — see renderThumb
       const label = document.createElement("div"); label.className = "thumbLabel";
       const num = document.createElement("span"); num.textContent = idx + 1;
       const moves = document.createElement("span"); moves.className = "thumbMoveBtns";
@@ -1739,6 +1817,29 @@ input[type=range]{accent-color:var(--brand);width:110px}
       label.append(num, moves);
       card.append(canvas, label);
       card.onclick = () => goToPage(idx + 1);
+      card.draggable = true;
+      card.addEventListener("dragstart", (e) => {
+        _dragFromIdx = +card.dataset.idx;
+        card.classList.add("dragging");
+        try { e.dataTransfer.setData("text/plain", String(_dragFromIdx)); e.dataTransfer.effectAllowed = "move"; } catch (_) {}
+      });
+      card.addEventListener("dragend", () => {
+        _dragFromIdx = null;
+        S.thumbsHost.querySelectorAll(".thumbCard").forEach((c) => c.classList.remove("dragging", "dragOver"));
+      });
+      card.addEventListener("dragover", (e) => {
+        if (_dragFromIdx == null) return;
+        e.preventDefault();
+        card.classList.add("dragOver");
+      });
+      card.addEventListener("dragleave", () => card.classList.remove("dragOver"));
+      card.addEventListener("drop", (e) => {
+        e.preventDefault();
+        card.classList.remove("dragOver");
+        const from = _dragFromIdx != null ? _dragFromIdx : +e.dataTransfer.getData("text/plain");
+        const to = +card.dataset.idx;
+        if (isFinite(from) && from !== to) dragReorderPage(from, to);
+      });
       rec.thumbCard = card; rec.thumbCanvas = canvas; rec.thumbRendered = false;
       host.appendChild(card);
       S.thumbIo.observe(card);
@@ -1787,16 +1888,18 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // Reorders one page up or down and saves the new order into the live document —
   // a structural edit (like insert/delete), so it sits outside Ctrl+Z for the same reason.
-  async function movePageOrder(idx, dir) {
-    const target = idx + dir;
-    if (target < 0 || target >= S.pages.length) return;
+  // Applies a full page reordering to the live document — shared by the up/down buttons
+  // and drag-and-drop. Now genuinely undoable: captures the pre-reorder bytes so Ctrl+Z
+  // can bring back the old order (unlike Insert/Delete, which change the page COUNT and
+  // stay outside Ctrl+Z for that separate reason).
+  async function reorderPages(order, opts) {
+    opts = opts || {};
     try {
       busy(true, "Reordering…");
       await ensurePdflib();
+      pushUndo({ structural: true });
       const { PDFDocument } = PDFLib;
       const src = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
-      const order = S.pages.map((_, i) => i);
-      [order[idx], order[target]] = [order[target], order[idx]];
       const out = await PDFDocument.create();
       const copied = await out.copyPages(src, order);
       copied.forEach((pg) => out.addPage(pg));
@@ -1816,12 +1919,29 @@ input[type=range]{accent-color:var(--brand);width:110px}
       refreshPageTotal();
       markDirty();
       if (S.thumbsOpen) buildThumbs();
-      goToPage(target + 1);
-      toast("Reordered pages " + (idx + 1) + " and " + (target + 1) + " — this isn't part of Undo, since it changes page order.");
+      if (opts.gotoPage != null) goToPage(opts.gotoPage);
+      toast(opts.message || "Reordered pages.");
     } catch (e) {
       console.error(e);
       toast("Couldn't reorder those pages.");
     } finally { busy(false); }
+  }
+
+  async function movePageOrder(idx, dir) {
+    const target = idx + dir;
+    if (target < 0 || target >= S.pages.length) return;
+    const order = S.pages.map((_, i) => i);
+    [order[idx], order[target]] = [order[target], order[idx]];
+    await reorderPages(order, { gotoPage: target + 1, message: "Reordered pages " + (idx + 1) + " and " + (target + 1) + "." });
+  }
+
+  // Drag-and-drop: move a page to an arbitrary new position (not just swap with a neighbor).
+  async function dragReorderPage(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
+    const order = S.pages.map((_, i) => i);
+    const [moved] = order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, moved);
+    await reorderPages(order, { gotoPage: toIdx + 1, message: "Moved page " + (fromIdx + 1) + " to position " + (toIdx + 1) + "." });
   }
 
   function sizePage(rec) {
@@ -2006,6 +2126,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("rotateCCW").onclick = () => rotatePage(currentPageIdx(), 270);
     $("rotateCW").onclick = () => rotatePage(currentPageIdx(), 90);
     $("insertPageBtn").onclick = insertBlankPage;
+    $("insertImageBtn").onclick = () => $("insertImageInput").click();
+    $("insertImageInput").onchange = (e) => { const f = e.target.files[0]; if (f) insertImagePage(f); e.target.value = ""; };
     $("deletePageBtn").onclick = deletePage;
     $("thumbsBtn").onclick = toggleThumbs;
   }
@@ -2466,19 +2588,38 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ============================================================
   // Undo
   // ============================================================
-  function pushUndo() {
-    // Snapshots rotation alongside annotations — rotatePage() changes both together
-    // (marks are re-positioned to match the new orientation), so undo must restore both
-    // together too, or a reverted mark would end up on a page still shown in the wrong
-    // orientation.
+  // Snapshots the current state for the undo/redo stacks. `structural: true` also
+  // captures S.bytes — needed for actions like page reorder that replace the underlying
+  // document rather than just moving marks around. Deliberately opt-in: snapshotting a
+  // whole PDF's bytes on every trivial edit (typing, moving a checkbox) would bloat
+  // memory fast; reordering pages is rare enough that it's a fine trade-off there.
+  function captureState(structural) {
     const pageRot = S.pages.map((r) => ({ userRot: r.userRot, wPts: r.wPts, hPts: r.hPts }));
-    S.undo.push(JSON.stringify({ annots: S.annots, pageRot }));
-    if (S.undo.length > 60) S.undo.shift();
-    $("undoBtn").disabled = false;
+    const entry = { annots: S.annots, pageRot };
+    if (structural) entry.bytes = _b64EncodeU8(S.bytes);
+    return JSON.stringify(entry);
   }
-  function undo() {
-    if (!S.undo.length) return;
-    const snap = JSON.parse(S.undo.pop());
+
+  function pushUndo(opts) {
+    S.undo.push(captureState(!!(opts && opts.structural)));
+    if (S.undo.length > 60) S.undo.shift();
+    S.redo = [];   // a fresh action invalidates whatever could have been redone — standard undo/redo behavior
+    $("undoBtn").disabled = false;
+    $("redoBtn").disabled = true;
+  }
+
+  async function applySnapshot(snapStr) {
+    const snap = JSON.parse(snapStr);
+    if (snap.bytes) {
+      S.bytes = _bytesOfB64(snap.bytes);
+      const newDoc = await pdfjsLib.getDocument({ data: S.bytes.slice(0) }).promise;
+      S.pdf = newDoc;
+      if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }
+      invalidateThumbs();
+      await buildPages();
+      showPagesHostFor(S);
+      if (S.thumbsOpen) buildThumbs();
+    }
     S.annots = snap.annots;
     (snap.pageRot || []).forEach((pr, i) => {
       const rec = S.pages[i];
@@ -2490,8 +2631,46 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (rec.thumbCanvas) { rec.thumbRendered = false; renderThumb(rec.num - 1); }
     });
     S.sel = null;
-    $("undoBtn").disabled = S.undo.length === 0;
+    refreshPageTotal();
     layout(); markDirty();
+  }
+
+  async function undo() {
+    if (!S.undo.length) return;
+    try {
+      busy(true);
+      // If what we're about to restore was a structural snapshot, the state we're
+      // *leaving* also needs its bytes captured — otherwise redo couldn't bring it back.
+      const undoingStructural = JSON.parse(S.undo[S.undo.length - 1]).bytes != null;
+      S.redo.push(captureState(undoingStructural));
+      if (S.redo.length > 60) S.redo.shift();
+      await applySnapshot(S.undo.pop());
+    } catch (e) {
+      console.error("Undo failed:", e);
+      toast("Couldn't undo that.");
+    } finally {
+      $("undoBtn").disabled = S.undo.length === 0;
+      $("redoBtn").disabled = S.redo.length === 0;
+      busy(false);
+    }
+  }
+
+  async function redo() {
+    if (!S.redo.length) return;
+    try {
+      busy(true);
+      const redoingStructural = JSON.parse(S.redo[S.redo.length - 1]).bytes != null;
+      S.undo.push(captureState(redoingStructural));
+      if (S.undo.length > 60) S.undo.shift();
+      await applySnapshot(S.redo.pop());
+    } catch (e) {
+      console.error("Redo failed:", e);
+      toast("Couldn't redo that.");
+    } finally {
+      $("undoBtn").disabled = S.undo.length === 0;
+      $("redoBtn").disabled = S.redo.length === 0;
+      busy(false);
+    }
   }
 
   // ============================================================
@@ -2523,6 +2702,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (mod && e.code === "KeyO") { e.preventDefault(); pickFile(); return; }
       if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
       if (mod && e.code === "KeyP") { e.preventDefault(); if (!$("printBtn").disabled) doPreview({ print: true }); return; }
+      if (mod && e.shiftKey && e.code === "KeyZ") { e.preventDefault(); redo(); return; }
+      if (mod && e.code === "KeyY") { e.preventDefault(); redo(); return; }
       if (mod && e.code === "KeyZ") { e.preventDefault(); undo(); return; }
       if (mod && (e.code === "KeyB" || e.code === "KeyI")) {
         const a = current();
