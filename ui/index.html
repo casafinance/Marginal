@@ -166,6 +166,18 @@ button{font-family:inherit}
 .split-summary{font-size:13px;color:var(--text);flex:1;line-height:1.5}
 .sheet-foot .split-summary{margin-right:auto}
 
+/* ---------- Shortcuts modal ---------- */
+.shortcuts-sheet{width:min(620px,94vw)}
+.shortcuts-body{display:flex;gap:32px;padding:6px 22px 22px}
+.shortcuts-col{flex:1;display:flex;flex-direction:column;gap:2px}
+.shortcuts-group{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text-soft);margin:14px 0 6px}
+.shortcuts-group:first-child{margin-top:0}
+.shortcuts-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:5px 0;font-size:13px;color:var(--text)}
+.shortcuts-row kbd{font-family:var(--font-mono);font-size:11px;background:var(--panel-soft);
+  border:1px solid var(--stroke);border-radius:5px;padding:2px 6px;color:var(--text-soft);white-space:nowrap}
+
 /* ---------- Merge modal ---------- */
 .merge-list{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;padding-right:2px}
 .merge-empty{padding:24px 0;text-align:center;color:var(--text-soft);font-size:13px}
@@ -242,7 +254,27 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .scrollpage.show{opacity:1}
 
 /* ---------- Workspace ---------- */
+.workspaceRow{flex:1;display:flex;min-height:0;overflow:hidden}
 .workspace{flex:1;overflow:auto;position:relative;scroll-behavior:smooth}
+.thumbSidebar{width:168px;flex:none;border-right:1px solid var(--stroke);background:var(--panel);
+  overflow-y:auto;overflow-x:hidden}
+.thumbSidebar[hidden]{display:none}
+.thumbList{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px 10px 40px}
+.thumbList.cached-hidden{display:none}
+.thumbCard{width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;
+  border-radius:8px;padding:6px 6px 5px;border:2px solid transparent}
+.thumbCard:hover{background:var(--panel-soft)}
+.thumbCard.current{border-color:var(--brand);background:var(--panel-soft)}
+.thumbCard canvas{display:block;max-width:100%;box-shadow:0 1px 4px rgba(20,25,45,.18);
+  background:#fff;border-radius:2px}
+.thumbCard .thumbLabel{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-soft)}
+.thumbCard.current .thumbLabel{color:var(--text);font-weight:600}
+.thumbMoveBtns{display:flex;gap:2px}
+.thumbMoveBtns button{width:16px;height:16px;border:none;background:transparent;color:var(--text-soft);
+  border-radius:4px;display:grid;place-items:center;cursor:pointer}
+.thumbMoveBtns button:hover:not(:disabled){background:var(--stroke);color:var(--text)}
+.thumbMoveBtns button:disabled{opacity:.3;cursor:default}
+.thumbMoveBtns svg{width:10px;height:10px}
 .pagesWrap{position:relative}
 .pages{display:flex;flex-direction:column;align-items:center;gap:20px;
   padding:26px 16px 120px}
@@ -443,6 +475,12 @@ input[type=range]{accent-color:var(--brand);width:110px}
     <div class="spacer"></div>
     <div class="actions">
       <span class="ocrstatus" id="ocrStatus" hidden><span class="ocrspin"></span><span id="ocrStatusText">Reading text…</span></span>
+      <button class="btn ghost iconly" id="thumbsBtn" disabled title="Toggle page thumbnails">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 6h7M14 12h7M14 18h7"/></svg>
+      </button>
+      <button class="btn ghost iconly" id="shortcutsBtn" title="Keyboard shortcuts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2 1.8-2 3.5"/><path d="M12 17h.01"/></svg>
+      </button>
       <button class="btn ghost" id="searchBtn" disabled title="Find text in the document (⌘/Ctrl+F)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         Search
@@ -568,6 +606,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <button class="zbtn" id="insertPageBtn" disabled title="Insert a blank page after this one">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M12 10v6M9 13h6"/></svg>
         </button>
+        <button class="zbtn" id="deletePageBtn" disabled title="Delete this page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 11h6"/></svg>
+        </button>
       </div>
       <div class="divider"></div>
       <div class="zoom">
@@ -583,7 +624,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
   <div class="scrollpage" id="scrollPage" hidden></div>
 
   <!-- Workspace -->
-  <div class="workspace tool-move" id="workspace">
+  <div class="workspaceRow">
+    <div class="thumbSidebar" id="thumbSidebar" hidden>
+      <div class="thumbListWrap" id="thumbListWrap"></div>
+    </div>
+    <div class="workspace tool-move" id="workspace">
     <div class="searchbar" id="searchBar" hidden>
       <svg class="sicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input id="searchInput" type="text" placeholder="Find in document" autocomplete="off" spellcheck="false">
@@ -610,11 +655,51 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <div class="hint">or press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>O</kbd></div>
       </div>
     </div>
+    </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy"><div class="card"><div class="spinner"></div><div class="msg" id="busyMsg"></div></div></div>
+
+<div class="modal" id="shortcutsModal" hidden>
+  <div class="sheet shortcuts-sheet">
+    <div class="sheet-head">
+      <h2>Keyboard shortcuts</h2>
+      <button class="iconbtn" id="shortcutsClose" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="shortcuts-body">
+      <div class="shortcuts-col">
+        <div class="shortcuts-group">File</div>
+        <div class="shortcuts-row"><span>Open a PDF</span><kbd>⌘/Ctrl O</kbd></div>
+        <div class="shortcuts-row"><span>Download</span><kbd>⌘/Ctrl S</kbd></div>
+        <div class="shortcuts-row"><span>Print</span><kbd>⌘/Ctrl P</kbd></div>
+        <div class="shortcuts-row"><span>Find in document</span><kbd>⌘/Ctrl F</kbd></div>
+        <div class="shortcuts-group">Tools</div>
+        <div class="shortcuts-row"><span>Select</span><kbd>V</kbd></div>
+        <div class="shortcuts-row"><span>Add text</span><kbd>T</kbd></div>
+        <div class="shortcuts-row"><span>Edit text</span><kbd>E</kbd></div>
+        <div class="shortcuts-row"><span>Redact</span><kbd>W</kbd></div>
+        <div class="shortcuts-row"><span>Checkbox</span><kbd>C</kbd></div>
+        <div class="shortcuts-row"><span>Sign</span><kbd>S</kbd></div>
+      </div>
+      <div class="shortcuts-col">
+        <div class="shortcuts-group">Editing</div>
+        <div class="shortcuts-row"><span>Undo</span><kbd>⌘/Ctrl Z</kbd></div>
+        <div class="shortcuts-row"><span>Copy selected mark</span><kbd>⌘/Ctrl C</kbd></div>
+        <div class="shortcuts-row"><span>Paste mark</span><kbd>⌘/Ctrl V</kbd></div>
+        <div class="shortcuts-row"><span>Delete selected mark</span><kbd>Delete</kbd></div>
+        <div class="shortcuts-row"><span>Bold / Italic (text mark)</span><kbd>⌘/Ctrl B</kbd> <kbd>⌘/Ctrl I</kbd></div>
+        <div class="shortcuts-row"><span>Scale selected mark</span><kbd>+</kbd> <kbd>−</kbd></div>
+        <div class="shortcuts-group">View</div>
+        <div class="shortcuts-row"><span>Zoom in / out</span><kbd>⌘/Ctrl +</kbd> <kbd>⌘/Ctrl −</kbd></div>
+        <div class="shortcuts-row"><span>Close a panel / deselect</span><kbd>Esc</kbd></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="mergeModal" hidden>
   <div class="sheet split-sheet">
@@ -865,6 +950,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       size: { text: 10, check: 18 },
       pages: [],
       pagesHost: null,   // this tab's own DOM container — built once, then just shown/hidden on switch
+      thumbsHost: null,  // same idea, for the thumbnail sidebar
+      thumbIo: null,
+      thumbsOpen: false,
       annots: [],
       undo: [],
       sel: null,
@@ -926,6 +1014,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     closeSearch();
     if (!S.pdf) {
       $("empty").classList.remove("hidden");
+      $("thumbSidebar").hidden = true;
       setToolbarEnabled(false);
       buildContext();
       return;
@@ -937,6 +1026,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       layout();
     }
     showPagesHostFor(S);
+    $("thumbSidebar").hidden = !S.thumbsOpen;
+    $("thumbsBtn").setAttribute("aria-pressed", String(S.thumbsOpen));
+    if (S.thumbsOpen) { buildThumbs(); syncThumbHighlight(); }
     refreshPageTotal();
     updateZoomUI();
     $("undoBtn").disabled = S.undo.length === 0;
@@ -946,7 +1038,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function setToolbarEnabled(on) {
-    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn"].forEach((id) => { $(id).disabled = !on; });
+    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn", "deletePageBtn", "thumbsBtn"].forEach((id) => { $(id).disabled = !on; });
   }
 
   async function switchToTab(i) {
@@ -962,8 +1054,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
     commitActiveEdit();
     const doc = docs[i];
     if (doc.io) { try { doc.io.disconnect(); } catch (_) {} }
+    if (doc.thumbIo) { try { doc.thumbIo.disconnect(); } catch (_) {} }
     if (doc.pdf) { try { doc.pdf.destroy(); } catch (_) {} }
     if (doc.pagesHost) { doc.pagesHost.remove(); }
+    if (doc.thumbsHost) { doc.thumbsHost.remove(); }
     docs.splice(i, 1);
     if (docs.length === 0) {
       activeIdx = -1; S = makeDocState();
@@ -1010,6 +1104,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   function wireHeader() {
     $("openBtn").onclick = pickFile;
+    $("shortcutsBtn").onclick = () => { $("shortcutsModal").hidden = false; };
+    $("shortcutsClose").onclick = () => { $("shortcutsModal").hidden = true; };
     $("tabNewBtn").onclick = pickFile;
     $("dropOpenBtn").onclick = pickFile;
     $("fileInput").onchange = (e) => { Array.from(e.target.files).forEach((f) => loadFile(f)); e.target.value = ""; };
@@ -1499,6 +1595,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     renderPage(idx);
     layout();
     markDirty();
+    if (rec.thumbCanvas) { rec.thumbRendered = false; renderThumb(idx); }
   }
 
   // Inserting a page changes the document's structure itself (page count), unlike every
@@ -1523,16 +1620,55 @@ input[type=range]{accent-color:var(--brand);width:110px}
       S.annots.forEach((a) => { if (a.page > idx) a.page += 1; });   // shift marks after the insert point
       S.sel = null;
       if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }   // stale — reflects the old page count
+      invalidateThumbs();
       await buildPages();
       showPagesHostFor(S);
       layout();
       refreshPageTotal();
       markDirty();
+      if (S.thumbsOpen) buildThumbs();
       goToPage(idx + 2);
       toast("Inserted a blank page after page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
     } catch (e) {
       console.error(e);
       toast("Couldn't insert a page.");
+    } finally { busy(false); }
+  }
+
+  async function deletePage() {
+    if (!S.pdf) return;
+    if (S.pages.length <= 1) { toast("Can't delete the only page in the document."); return; }
+    const idx = currentPageIdx();
+    const marksHere = S.annots.filter((a) => a.page === idx).length;
+    const msg = "Delete page " + (idx + 1) + "?" + (marksHere
+      ? " It has " + marksHere + " mark" + (marksHere > 1 ? "s" : "") + " on it — " + (marksHere > 1 ? "they'll" : "it'll") + " be deleted too."
+      : "");
+    if (!window.confirm(msg)) return;
+    try {
+      busy(true, "Deleting page…");
+      await ensurePdflib();
+      const { PDFDocument } = PDFLib;
+      const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+      pdf.removePage(idx);
+      const newBytes = await pdf.save({ useObjectStreams: false });
+      S.bytes = newBytes;
+      const newDoc = await pdfjsLib.getDocument({ data: newBytes.slice(0) }).promise;
+      S.pdf = newDoc;
+      S.annots = S.annots.filter((a) => a.page !== idx).map((a) => (a.page > idx ? { ...a, page: a.page - 1 } : a));
+      S.sel = null;
+      if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }   // stale — reflects the old page count
+      invalidateThumbs();
+      await buildPages();
+      showPagesHostFor(S);
+      layout();
+      refreshPageTotal();
+      markDirty();
+      if (S.thumbsOpen) buildThumbs();
+      goToPage(Math.min(idx + 1, S.pages.length));
+      toast("Deleted page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't delete that page.");
     } finally { busy(false); }
   }
 
@@ -1569,6 +1705,122 @@ input[type=range]{accent-color:var(--brand);width:110px}
     } catch (e) {
       console.error(e);
       toast("Couldn't compress this PDF.");
+    } finally { busy(false); }
+  }
+
+  // ============================================================
+  // Page thumbnails sidebar
+  // ============================================================
+  function buildThumbs() {
+    if (S.thumbsHost) { showThumbsHostFor(S); return; }   // already built once for this tab
+    const host = document.createElement("div");
+    host.className = "thumbList";
+    $("thumbListWrap").appendChild(host);
+    S.thumbsHost = host;
+    if (S.thumbIo) S.thumbIo.disconnect();
+    S.thumbIo = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) renderThumb(+e.target.dataset.idx);
+    }, { root: $("thumbSidebar"), rootMargin: "400px 0px" });
+
+    S.pages.forEach((rec, idx) => {
+      const card = document.createElement("div");
+      card.className = "thumbCard"; card.dataset.idx = idx;
+      const canvas = document.createElement("canvas");
+      const label = document.createElement("div"); label.className = "thumbLabel";
+      const num = document.createElement("span"); num.textContent = idx + 1;
+      const moves = document.createElement("span"); moves.className = "thumbMoveBtns";
+      const up = document.createElement("button"); up.title = "Move page up"; up.disabled = idx === 0;
+      up.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+      up.onclick = (e) => { e.stopPropagation(); movePageOrder(idx, -1); };
+      const down = document.createElement("button"); down.title = "Move page down"; down.disabled = idx === S.pages.length - 1;
+      down.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+      down.onclick = (e) => { e.stopPropagation(); movePageOrder(idx, 1); };
+      moves.append(up, down);
+      label.append(num, moves);
+      card.append(canvas, label);
+      card.onclick = () => goToPage(idx + 1);
+      rec.thumbCard = card; rec.thumbCanvas = canvas; rec.thumbRendered = false;
+      host.appendChild(card);
+      S.thumbIo.observe(card);
+    });
+  }
+
+  function renderThumb(idx) {
+    const rec = S.pages[idx];
+    if (!rec || rec.thumbRendered) return;
+    rec.thumbRendered = true;
+    const THUMB_W = 130;
+    const scale = THUMB_W / (rec.wPts || 612);
+    const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
+    const canvas = rec.thumbCanvas;
+    canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
+    const ctx = canvas.getContext("2d");
+    rec.page.render({ canvasContext: ctx, viewport: vp }).promise.catch(() => { rec.thumbRendered = false; });
+  }
+
+  function showThumbsHostFor(doc) {
+    document.querySelectorAll("#thumbListWrap > .thumbList").forEach((el) => {
+      el.classList.toggle("cached-hidden", el !== doc.thumbsHost);
+    });
+  }
+
+  function syncThumbHighlight() {
+    if (!S.thumbsHost) return;
+    const idx = currentPageIdx();
+    S.thumbsHost.querySelectorAll(".thumbCard").forEach((c) => c.classList.toggle("current", +c.dataset.idx === idx));
+  }
+
+  function toggleThumbs() {
+    S.thumbsOpen = !S.thumbsOpen;
+    $("thumbSidebar").hidden = !S.thumbsOpen;
+    $("thumbsBtn").setAttribute("aria-pressed", String(S.thumbsOpen));
+    if (S.thumbsOpen) { buildThumbs(); syncThumbHighlight(); }
+  }
+
+  // Discards a tab's cached thumbnails so the next view rebuilds them from scratch —
+  // needed whenever the page structure itself changes (insert/delete/reorder), since
+  // the cached cards would otherwise show the wrong count or stale page numbers.
+  function invalidateThumbs() {
+    if (S.thumbIo) { S.thumbIo.disconnect(); S.thumbIo = null; }
+    if (S.thumbsHost) { S.thumbsHost.remove(); S.thumbsHost = null; }
+  }
+
+  // Reorders one page up or down and saves the new order into the live document —
+  // a structural edit (like insert/delete), so it sits outside Ctrl+Z for the same reason.
+  async function movePageOrder(idx, dir) {
+    const target = idx + dir;
+    if (target < 0 || target >= S.pages.length) return;
+    try {
+      busy(true, "Reordering…");
+      await ensurePdflib();
+      const { PDFDocument } = PDFLib;
+      const src = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+      const order = S.pages.map((_, i) => i);
+      [order[idx], order[target]] = [order[target], order[idx]];
+      const out = await PDFDocument.create();
+      const copied = await out.copyPages(src, order);
+      copied.forEach((pg) => out.addPage(pg));
+      const newBytes = await out.save({ useObjectStreams: false });
+      S.bytes = newBytes;
+      const newDoc = await pdfjsLib.getDocument({ data: newBytes.slice(0) }).promise;
+      S.pdf = newDoc;
+      const newIndexOf = new Array(order.length);
+      order.forEach((oldIdx, newIdx) => { newIndexOf[oldIdx] = newIdx; });
+      S.annots.forEach((a) => { a.page = newIndexOf[a.page]; });
+      S.sel = null;
+      if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }
+      invalidateThumbs();
+      await buildPages();
+      showPagesHostFor(S);
+      layout();
+      refreshPageTotal();
+      markDirty();
+      if (S.thumbsOpen) buildThumbs();
+      goToPage(target + 1);
+      toast("Reordered pages " + (idx + 1) + " and " + (target + 1) + " — this isn't part of Undo, since it changes page order.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't reorder those pages.");
     } finally { busy(false); }
   }
 
@@ -1716,6 +1968,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const idx = currentPageIdx();
     const inp = $("pageInput");
     if (document.activeElement !== inp) inp.value = String(idx + 1);
+    syncThumbHighlight();
     if (fromScroll) {
       const sp = $("scrollPage");
       sp.hidden = false; sp.textContent = "Page " + (idx + 1) + " / " + S.pages.length;
@@ -1753,6 +2006,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("rotateCCW").onclick = () => rotatePage(currentPageIdx(), 270);
     $("rotateCW").onclick = () => rotatePage(currentPageIdx(), 90);
     $("insertPageBtn").onclick = insertBlankPage;
+    $("deletePageBtn").onclick = deletePage;
+    $("thumbsBtn").onclick = toggleThumbs;
   }
 
   // ============================================================
@@ -2232,6 +2487,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (rec.canvas) { rec.canvas.remove(); rec.canvas = null; }
       rec.renderedZoom = 0; rec.textZoom = -1;
       sizePage(rec); renderPage(rec.num - 1);
+      if (rec.thumbCanvas) { rec.thumbRendered = false; renderThumb(rec.num - 1); }
     });
     S.sel = null;
     $("undoBtn").disabled = S.undo.length === 0;
@@ -2245,7 +2501,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     window.addEventListener("keydown", (e) => {
       const ae = document.activeElement;
       const typing = ae && (ae.isContentEditable || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden;
+      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden || !$("shortcutsModal").hidden;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyF") {
         e.preventDefault();
@@ -2256,12 +2512,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
         if (!$("signModal").hidden) { closeSignModal(); return; }
         if (!$("splitModal").hidden) { closeSplitModal(); return; }
         if (!$("mergeModal").hidden) { closeMergeModal(); return; }
+        if (!$("shortcutsModal").hidden) { $("shortcutsModal").hidden = true; return; }
         if (!$("previewModal").hidden) { closePreview(); return; }
         if (!$("defaultAppModal").hidden) { $("defaultAppModal").hidden = true; return; }
         if (!$("searchBar").hidden) { closeSearch(); return; }
       }
       // While typing in a field or with a modal open, let the field handle keys normally.
       if (typing || modalOpen) return;
+      if (e.key === "?") { $("shortcutsModal").hidden = false; return; }
       if (mod && e.code === "KeyO") { e.preventDefault(); pickFile(); return; }
       if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
       if (mod && e.code === "KeyP") { e.preventDefault(); if (!$("printBtn").disabled) doPreview({ print: true }); return; }
