@@ -167,6 +167,33 @@ fn save_file_as(
     }
 }
 
+/// Shows a native "Open" dialog (multi-select) and returns each chosen file's real path
+/// plus its bytes — the path is what a future "Save" (vs. "Save As") would write back to,
+/// which the plain HTML file input can never provide (browsers never expose a real path,
+/// for the same security reasons in every browser, Tauri's webview included).
+#[tauri::command]
+fn open_files_dialog(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("PDF and Word Documents", &["pdf", "docx"])
+        .blocking_pick_files();
+    let mut out = Vec::new();
+    if let Some(paths) = picked {
+        for file_path in paths {
+            let path = file_path.into_path().map_err(|e| e.to_string())?;
+            let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("document").to_string();
+            out.push(serde_json::json!({
+                "name": name,
+                "path": path.to_string_lossy().to_string(),
+                "b64": b64_encode(&bytes),
+            }));
+        }
+    }
+    Ok(out)   // empty vec if the person cancelled — not an error
+}
+
 /// Checks for a newer release. Same "call the Rust API directly" fix as save_file_as —
 /// `window.__TAURI__.updater` doesn't exist for the same reason. Stashes the found
 /// Update in app state so `install_update` can use it without round-tripping the whole
@@ -207,29 +234,6 @@ async fn install_update(state: tauri::State<'_, PendingUpdate>) -> Result<(), St
     }
 }
 
-/// Finds LibreOffice's soffice.exe, checking the common install locations first (its
-/// installer doesn't always add itself to PATH) and falling back to PATH itself.
-fn find_libreoffice() -> Option<std::path::PathBuf> {
-    for c in [
-        r"C:\Program Files\LibreOffice\program\soffice.exe",
-        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-    ] {
-        let p = std::path::PathBuf::from(c);
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    let output = std::process::Command::new("where").arg("soffice.exe").output().ok()?;
-    if output.status.success() {
-        let s = String::from_utf8(output.stdout).ok()?;
-        let first = s.lines().next()?.trim();
-        if !first.is_empty() {
-            return Some(std::path::PathBuf::from(first));
-        }
-    }
-    None
-}
-
 /// Runs a child process but doesn't wait forever — Word's COM automation in particular
 /// is known to hang indefinitely if it hits an unexpected dialog (format warnings,
 /// update checks, etc.), and a stuck conversion shouldn't be able to freeze the app.
@@ -254,9 +258,12 @@ fn run_with_timeout(cmd: &mut std::process::Command, timeout: std::time::Duratio
     }
 }
 
-/// Converts a .docx to PDF using whichever of LibreOffice or Word is actually installed —
-/// there's no way to know which, if either, a given computer has, so both are tried.
-/// Everything happens in a fresh temp folder that's cleaned up afterward either way.
+/// Converts a .docx to PDF via Word's own COM automation (the standard way to script
+/// Word — it has no command-line export flag the way LibreOffice does). Hardened
+/// against the specific things that make Word automation hang waiting for a click that
+/// will never come: DisplayAlerts is off, format-conversion confirmation is off, and the
+/// document is closed without prompting to save. Everything happens in a fresh temp
+/// folder that's cleaned up afterward either way.
 #[tauri::command]
 fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, String> {
     let bytes = b64_decode(&b64)?;
@@ -277,41 +284,26 @@ fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, S
         return Err(e.to_string());
     }
 
-    let mut converted = false;
-
-    if let Some(soffice) = find_libreoffice() {
-        let mut cmd = std::process::Command::new(&soffice);
-        cmd.args(["--headless", "--norestore", "--convert-to", "pdf", "--outdir"])
-            .arg(&work_dir)
-            .arg(&input_path);
-        if run_with_timeout(&mut cmd, std::time::Duration::from_secs(60)) && output_path.exists() {
-            converted = true;
-        }
-    }
-
-    if !converted {
-        let ps_script = format!(
-            "$ErrorActionPreference = 'Stop'; \
-             $word = New-Object -ComObject Word.Application; \
-             $word.Visible = $false; \
-             try {{ \
-                $doc = $word.Documents.Open('{input}'); \
-                $doc.SaveAs([ref]'{output}', [ref]17); \
-                $doc.Close() \
-             }} finally {{ $word.Quit() }}",
-            input = input_path.display(),
-            output = output_path.display()
-        );
-        let mut cmd = std::process::Command::new("powershell");
-        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &ps_script]);
-        if run_with_timeout(&mut cmd, std::time::Duration::from_secs(60)) && output_path.exists() {
-            converted = true;
-        }
-    }
+    let ps_script = format!(
+        "$ErrorActionPreference = 'Stop'; \
+         $word = New-Object -ComObject Word.Application; \
+         $word.Visible = $false; \
+         $word.DisplayAlerts = 0; \
+         try {{ \
+            $doc = $word.Documents.Open('{input}', $false, $false, $false); \
+            $doc.SaveAs([ref]'{output}', [ref]17); \
+            $doc.Close([ref]$false) \
+         }} finally {{ $word.Quit() }}",
+        input = input_path.display(),
+        output = output_path.display()
+    );
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", &ps_script]);
+    let converted = run_with_timeout(&mut cmd, std::time::Duration::from_secs(45)) && output_path.exists();
 
     if !converted {
         cleanup();
-        return Err("Couldn't find Word or LibreOffice on this computer. Install one of them, or convert the file to PDF yourself first.".into());
+        return Err("Couldn't convert that file using Word. Make sure Word can open it normally, then try again.".into());
     }
 
     let pdf_bytes = match std::fs::read(&output_path) {
@@ -350,6 +342,7 @@ pub fn run() {
             set_default_pdf_app,
             open_default_apps_settings,
             save_file_as,
+            open_files_dialog,
             check_for_update,
             install_update,
             convert_docx_to_pdf
