@@ -243,8 +243,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
 /* ---------- Workspace ---------- */
 .workspace{flex:1;overflow:auto;position:relative;scroll-behavior:smooth}
+.pagesWrap{position:relative}
 .pages{display:flex;flex-direction:column;align-items:center;gap:20px;
   padding:26px 16px 120px}
+.pages.cached-hidden{display:none}
 .page{position:relative;background:#fff;border-radius:6px;box-shadow:var(--shadow-page);
   outline:1px solid rgba(20,25,45,.06);animation:pageIn .28s ease both}
 .page canvas{display:block;border-radius:6px}
@@ -483,6 +485,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
             <strong>Download flattened</strong><span>Locks form fields into static content</span>
           </button>
           <div class="menu-sep"></div>
+          <button id="dlCompress" role="menuitem">
+            <strong>Compress &amp; download</strong><span>Smaller file — pages become images, text no longer selectable</span>
+          </button>
+          <div class="menu-sep"></div>
           <button id="dlSplit" role="menuitem">
             <strong>Split into multiple PDFs…</strong><span>Cut this document into separate files</span>
           </button>
@@ -552,6 +558,18 @@ input[type=range]{accent-color:var(--brand);width:110px}
         </button>
       </div>
       <div class="divider"></div>
+      <div class="pagenav" id="rotateNav" title="Rotate the current page">
+        <button class="zbtn" id="rotateCCW" disabled title="Rotate current page left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
+        </button>
+        <button class="zbtn" id="rotateCW" disabled title="Rotate current page right">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        </button>
+        <button class="zbtn" id="insertPageBtn" disabled title="Insert a blank page after this one">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M12 10v6M9 13h6"/></svg>
+        </button>
+      </div>
+      <div class="divider"></div>
       <div class="zoom">
         <button class="zbtn" id="zoomOut" title="Zoom out (−)">−</button>
         <span class="zval" id="zoomVal">100%</span>
@@ -580,7 +598,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </div>
-    <div class="pages" id="pages"></div>
+    <div class="pagesWrap" id="pagesWrap"></div>
     <div class="empty" id="empty">
       <div class="drop" id="drop">
         <div class="ic">
@@ -846,6 +864,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       color: { text: "#000000", whiteout: "#ffffff", check: "#000000" },
       size: { text: 10, check: 18 },
       pages: [],
+      pagesHost: null,   // this tab's own DOM container — built once, then just shown/hidden on switch
       annots: [],
       undo: [],
       sel: null,
@@ -894,19 +913,30 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // pdf.js document rather than re-parsing the file, so it's a fresh render, not a
   // fresh load — a deliberate simplicity/speed tradeoff over keeping every tab's DOM
   // alive in the background.
+  // Shows this tab's own page container, hides every other tab's. Nothing is rebuilt —
+  // a tab's pages, once rendered, stay in the DOM (just hidden) for as long as the tab
+  // stays open, so switching back to it is instant instead of a fresh re-render.
+  function showPagesHostFor(doc) {
+    document.querySelectorAll('#pagesWrap > .pages').forEach((el) => {
+      el.classList.toggle("cached-hidden", el !== doc.pagesHost);
+    });
+  }
+
   async function showActiveDoc() {
     closeSearch();
     if (!S.pdf) {
       $("empty").classList.remove("hidden");
-      $("pages").innerHTML = "";
       setToolbarEnabled(false);
       buildContext();
       return;
     }
     $("empty").classList.add("hidden");
     setToolbarEnabled(true);
-    await buildPages();
-    layout();   // buildPages() only builds page/canvas structure — this renders S.annots onto it
+    if (!S.pagesHost) {
+      await buildPages();
+      layout();
+    }
+    showPagesHostFor(S);
     refreshPageTotal();
     updateZoomUI();
     $("undoBtn").disabled = S.undo.length === 0;
@@ -916,11 +946,12 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function setToolbarEnabled(on) {
-    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn"].forEach((id) => { $(id).disabled = !on; });
+    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn"].forEach((id) => { $(id).disabled = !on; });
   }
 
   async function switchToTab(i) {
     if (i === activeIdx || i < 0 || i >= docs.length) return;
+    commitActiveEdit();   // don't leave a text edit dangling in the tab we're leaving
     activeIdx = i; S = docs[i];
     renderTabs();
     await showActiveDoc();
@@ -928,9 +959,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   function closeTab(i) {
     if (i < 0 || i >= docs.length) return;
+    commitActiveEdit();
     const doc = docs[i];
     if (doc.io) { try { doc.io.disconnect(); } catch (_) {} }
     if (doc.pdf) { try { doc.pdf.destroy(); } catch (_) {} }
+    if (doc.pagesHost) { doc.pagesHost.remove(); }
     docs.splice(i, 1);
     if (docs.length === 0) {
       activeIdx = -1; S = makeDocState();
@@ -984,6 +1017,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("dlAsIs").onclick = () => { closeDownloadMenu(); doDownload(); };
     $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
     $("dlSplit").onclick = () => { closeDownloadMenu(); openSplitModal(); };
+    $("dlCompress").onclick = () => { closeDownloadMenu(); doCompress(); };
     $("downloadMenuBtn").onclick = (e) => { e.stopPropagation(); toggleDownloadMenu(); };
     document.addEventListener("pointerdown", (e) => {
       const m = $("downloadMenu");
@@ -1351,7 +1385,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       doc.search = { q: "", hits: [], idx: -1 };
       doc.ocr = { running: false, done: false, forced: false };
       renderTabs();   // safe regardless of which tab is active — just updates names/dirty dots
-      // Only touch shared chrome (toolbar, #pages, zoom) if this tab is STILL the one
+      // Only touch shared chrome (toolbar, page view, zoom) if this tab is STILL the one
       // showing — opening several files at once means earlier loads can finish after a
       // later one has already taken over as active, and this must not render into it.
       if (S === doc) {
@@ -1361,6 +1395,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         $("undoBtn").disabled = true;
         $("empty").classList.add("hidden");
         await buildPages();
+        showPagesHostFor(doc);
         refreshPageTotal();
         fitWidth();
       }
@@ -1376,16 +1411,23 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   async function buildPages() {
-    const host = $("pages");
-    host.innerHTML = "";
+    if (S.pagesHost) return;   // already built once for this tab — switching back just shows it (see showActiveDoc)
+    const host = document.createElement("div");
+    host.className = "pages";
+    $("pagesWrap").appendChild(host);
+    S.pagesHost = host;
+    // buildPages() used to re-run on every tab switch, which needed this to survive that;
+    // now it only ever runs once per tab, but kept as a harmless safety net.
+    const savedRot = (S.pages || []).map((r) => r.userRot || 0);
     S.pages = [];
     if (S.io) S.io.disconnect();
     S.io = new IntersectionObserver(onIntersect, { root: $("workspace"), rootMargin: "600px 0px" });
 
     for (let i = 1; i <= S.pdf.numPages; i++) {
       const page = await S.pdf.getPage(i);
-      const vp = page.getViewport({ scale: 1 });
       const rot = ((page.rotate % 360) + 360) % 360;
+      const userRot = savedRot[i - 1] || 0;
+      const vp = page.getViewport({ scale: 1, rotation: (rot + userRot + 360) % 360 });
       const wrap = document.createElement("div");
       wrap.className = "page"; wrap.dataset.idx = i - 1;
       const textDiv = document.createElement("div"); textDiv.className = "textLayer";
@@ -1411,13 +1453,123 @@ input[type=range]{accent-color:var(--brand);width:110px}
         }
       });
 
-      const rec = { num: i, page, wPts: vp.width, hPts: vp.height, rot, wrap, overlay, textDiv, searchLayer,
+      const rec = { num: i, page, wPts: vp.width, hPts: vp.height, rot, userRot, wrap, overlay, textDiv, searchLayer,
         canvas: null, task: null, renderedZoom: 0, textZoom: -1, textTask: null, hasText: null, native: null, ocrExtra: null, tokens: null };
       S.pages.push(rec);
       sizePage(rec);
       bindOverlay(rec, i - 1);
       S.io.observe(wrap);
     }
+  }
+
+  // Rotate one page, keeping every mark on it visually attached to the same content.
+  // Verified with two independent methods before shipping: physical corner-tracking
+  // (does TL really end up where a rotated sheet of paper would put it) and a
+  // bounding-box re-derivation (transform all 4 corners, don't assume which one is
+  // still "top-left" after rotating) — both agree for 90/180/270 in either direction.
+  function transformRect(x, y, w, h, delta, oldW, oldH) {
+    const corners = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]];
+    const T = delta === 90 ? (p) => [oldH - p[1], p[0]]
+      : delta === 270 ? (p) => [p[1], oldW - p[0]]
+      : (p) => [oldW - p[0], oldH - p[1]];   // 180
+    const pts = corners.map(T);
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const nx = Math.min(...xs), ny = Math.min(...ys);
+    return { x: nx, y: ny, w: Math.max(...xs) - nx, h: Math.max(...ys) - ny };
+  }
+
+  function rotatePage(idx, delta) {
+    const rec = S.pages[idx];
+    if (!rec) return;
+    pushUndo();
+    const oldW = rec.wPts, oldH = rec.hPts;
+    const netDelta = ((delta % 360) + 360) % 360;   // 90 or 270
+    S.annots.forEach((a) => {
+      if (a.page !== idx) return;
+      const r = transformRect(a.x, a.y, a.w || 0, a.h || 0, netDelta, oldW, oldH);
+      a.x = r.x; a.y = r.y;
+      if (a.w != null) { a.w = r.w; a.h = r.h; }
+    });
+    rec.userRot = ((rec.userRot + delta) % 360 + 360) % 360;
+    const vp = rec.page.getViewport({ scale: 1, rotation: (rec.rot + rec.userRot + 360) % 360 });
+    rec.wPts = vp.width; rec.hPts = vp.height;
+    if (rec.canvas) { rec.canvas.remove(); }
+    rec.canvas = null; rec.renderedZoom = 0; rec.textZoom = -1;   // force a full re-render at the new orientation
+    sizePage(rec);
+    renderPage(idx);
+    layout();
+    markDirty();
+  }
+
+  // Inserting a page changes the document's structure itself (page count), unlike every
+  // other edit in this app, which only ever adds/removes annotations on a fixed set of
+  // pages. Ctrl+Z's undo stack only snapshots annotations, so it deliberately can't revert
+  // this — it's a separate class of action, same as Split/Merge/Extract producing a new
+  // file rather than a live edit. Told to the person in the toast, not hidden.
+  async function insertBlankPage() {
+    if (!S.pdf) return;
+    const idx = currentPageIdx();   // insert after whichever page is in view
+    try {
+      busy(true, "Inserting page…");
+      await ensurePdflib();
+      const { PDFDocument } = PDFLib;
+      const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+      const ref = S.pages[idx];
+      pdf.insertPage(idx + 1, [ref.wPts, ref.hPts]);   // match the current page's visual size
+      const newBytes = await pdf.save({ useObjectStreams: false });
+      S.bytes = newBytes;
+      const newDoc = await pdfjsLib.getDocument({ data: newBytes.slice(0) }).promise;
+      S.pdf = newDoc;
+      S.annots.forEach((a) => { if (a.page > idx) a.page += 1; });   // shift marks after the insert point
+      S.sel = null;
+      if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }   // stale — reflects the old page count
+      await buildPages();
+      showPagesHostFor(S);
+      layout();
+      refreshPageTotal();
+      markDirty();
+      goToPage(idx + 2);
+      toast("Inserted a blank page after page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't insert a page.");
+    } finally { busy(false); }
+  }
+
+  async function doCompress() {
+    if (!S.bytes) return;
+    try {
+      busy(true, "Compressing…");
+      await ensurePdflib();
+      await ensurePdfjs();
+      const { bytes } = await buildPdfBytes();   // start from the edited (marks baked in) document
+      const renderDoc = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+      const { PDFDocument } = PDFLib;
+      const out = await PDFDocument.create();
+      const scale = 1.5;   // ~108 DPI-equivalent — noticeably smaller than the redaction pass's 2x
+      for (let i = 1; i <= renderDoc.numPages; i++) {
+        const page = await renderDoc.getPage(i);
+        const vp = page.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);   // JPEG has no transparency
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        const jpegBytes = _bytesOfB64(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+        const img = await out.embedJpg(jpegBytes);
+        const pageW = vp.width / scale, pageH = vp.height / scale;
+        const outPage = out.addPage([pageW, pageH]);
+        outPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
+      }
+      const compBytes = await out.save({ useObjectStreams: false });
+      const name = S.fileName.replace(/\.pdf$/i, "") + " (compressed).pdf";
+      const saved = await saveFile(compBytes, name, "application/pdf");
+      if (!saved) return;
+      toast("Compressed and saved — every page is now an image, so text isn't selectable anymore.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't compress this PDF.");
+    } finally { busy(false); }
   }
 
   function sizePage(rec) {
@@ -1443,7 +1595,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (rec.task) { try { rec.task.cancel(); } catch (_) {} rec.task = null; }
 
     const scale = S.zoom * DPR;
-    const vp = rec.page.getViewport({ scale });
+    const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
     let canvas = rec.canvas;
     if (!canvas) {
       canvas = document.createElement("canvas");
@@ -1473,7 +1625,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const tc = await rec.page.getTextContent();
       if (tc.items && tc.items.length) {
         rec.hasText = true;
-        const viewport = rec.page.getViewport({ scale: S.zoom });
+        const viewport = rec.page.getViewport({ scale: S.zoom, rotation: (rec.rot + rec.userRot + 360) % 360 });
         const task = pdfjsLib.renderTextLayer({ textContentSource: tc, container: rec.textDiv, viewport, textDivs: [] });
         rec.textTask = task;
         await task.promise;
@@ -1598,6 +1750,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const commit = () => { const n = parseInt($("pageInput").value, 10); if (isFinite(n)) goToPage(n); else $("pageInput").value = String(currentPageIdx() + 1); };
     $("pageInput").addEventListener("change", commit);
     $("pageInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); $("pageInput").blur(); } });
+    $("rotateCCW").onclick = () => rotatePage(currentPageIdx(), 270);
+    $("rotateCW").onclick = () => rotatePage(currentPageIdx(), 90);
+    $("insertPageBtn").onclick = insertBlankPage;
   }
 
   // ============================================================
@@ -2057,13 +2212,27 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // Undo
   // ============================================================
   function pushUndo() {
-    S.undo.push(JSON.stringify(S.annots));
+    // Snapshots rotation alongside annotations — rotatePage() changes both together
+    // (marks are re-positioned to match the new orientation), so undo must restore both
+    // together too, or a reverted mark would end up on a page still shown in the wrong
+    // orientation.
+    const pageRot = S.pages.map((r) => ({ userRot: r.userRot, wPts: r.wPts, hPts: r.hPts }));
+    S.undo.push(JSON.stringify({ annots: S.annots, pageRot }));
     if (S.undo.length > 60) S.undo.shift();
     $("undoBtn").disabled = false;
   }
   function undo() {
     if (!S.undo.length) return;
-    S.annots = JSON.parse(S.undo.pop());
+    const snap = JSON.parse(S.undo.pop());
+    S.annots = snap.annots;
+    (snap.pageRot || []).forEach((pr, i) => {
+      const rec = S.pages[i];
+      if (!rec || rec.userRot === pr.userRot) return;
+      rec.userRot = pr.userRot; rec.wPts = pr.wPts; rec.hPts = pr.hPts;
+      if (rec.canvas) { rec.canvas.remove(); rec.canvas = null; }
+      rec.renderedZoom = 0; rec.textZoom = -1;
+      sizePage(rec); renderPage(rec.num - 1);
+    });
     S.sel = null;
     $("undoBtn").disabled = S.undo.length === 0;
     layout(); markDirty();
@@ -2158,6 +2327,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
     await ensurePdflib();                  // export library (loaded lazily, not at startup)
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
     const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+    // Apply any page rotations made in the editor. Must run before the redaction pass
+    // and the per-annotation loop below — both read the page's rotation live (via
+    // pg.getRotation()) to correctly place content, so this needs to already reflect
+    // the final rotation before either of them runs.
+    S.pages.forEach((rec, idx) => {
+      if (!rec.userRot) return;
+      const pg = pdf.getPages()[idx]; if (!pg) return;
+      const total = ((pg.getRotation().angle + rec.userRot) % 360 + 360) % 360;
+      pg.setRotation(PDFLib.degrees(total));
+    });
     // "Download flattened": bake the PDF's interactive form fields (fillable boxes,
     // checkboxes, dropdowns) into static page content so nothing stays editable.
     // Done before our own marks so those still sit on top.
