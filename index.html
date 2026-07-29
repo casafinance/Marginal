@@ -542,7 +542,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
           </button>
         </div>
       </div>
-      <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple class="hidden">
+      <input type="file" id="fileInput" accept="application/pdf,.pdf,.docx" multiple class="hidden">
     </div>
   </header>
 
@@ -622,6 +622,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <button class="zbtn" id="deletePageBtn" disabled title="Delete this page">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 11h6"/></svg>
         </button>
+        <button class="zbtn" id="insertImageBtn" disabled title="Insert an image (PNG/JPG) as a new page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17 4.5-4.5c.8-.8 2-.8 2.8 0L18 18"/></svg>
+        </button>
+        <input type="file" id="insertImageInput" accept="image/png,image/jpeg,.png,.jpg,.jpeg" class="hidden">
       </div>
       <div class="divider"></div>
       <div class="zoom">
@@ -1056,7 +1060,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function setToolbarEnabled(on) {
-    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn", "deletePageBtn", "thumbsBtn"].forEach((id) => { $(id).disabled = !on; });
+    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn", "deletePageBtn", "thumbsBtn", "insertImageBtn"].forEach((id) => { $(id).disabled = !on; });
   }
 
   async function switchToTab(i) {
@@ -1155,10 +1159,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
     ["dragleave", "drop"].forEach((ev) => ws.addEventListener(ev, (e) => { stop(e); dz && dz.classList.remove("hot"); }));
     ws.addEventListener("drop", (e) => {
       const files = filesFromDrop(e.dataTransfer);
-      const pdfs = files.filter((f) => f && /\.pdf$/i.test(f.name));
       if (!files.length) return;   // some drag sources (e.g. certain Outlook/OLE attachments)
                                     // don't expose a readable file to the browser at all —
                                     // nothing we can do at the web layer for those.
+      if (files.length === 1 && /\.docx$/i.test(files[0].name)) { loadFile(files[0]); return; }
+      const pdfs = files.filter((f) => f && /\.pdf$/i.test(f.name));
       if (!pdfs.length) { toast("That's not a PDF file."); return; }
       if (pdfs.length === 1) { loadFile(pdfs[0]); return; }
       // Multiple PDFs dropped at once — feed them straight into Merge instead of only
@@ -1207,7 +1212,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (S.tool === "move") {
       const a = current();
       if (a) { buildSelectionEditor(c, a); return; }
-      c.innerHTML = '<span class="lbl" style="opacity:.8">Click a mark to select · drag to move · scale with +/− · Delete to remove</span>';
       return;
     }
     const fam = FAMILY[S.tool];
@@ -1485,7 +1489,30 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ============================================================
   // Load + render
   // ============================================================
+  // Word documents can't be rendered here directly (that's what pdf.js is for, and
+  // there's no equivalent for docx in the browser) — on desktop, this hands the file to
+  // whichever of Word or LibreOffice is actually installed and asks it to export a real
+  // PDF, then loads that PDF exactly the normal way. Not available in the browser build
+  // at all: there's no OS to shell out to from inside a webpage.
+  async function loadDocxFile(file) {
+    const T = window.__TAURI__;
+    if (!T) { toast("Word documents need the desktop app — this browser version only opens PDFs."); return; }
+    try {
+      busy(true, "Converting from Word (this can take a moment)…");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const result = await T.core.invoke("convert_docx_to_pdf", { name: file.name, b64: _b64EncodeU8(bytes) });
+      const pdfFile = new File([_bytesOfB64(result.b64)], result.name, { type: "application/pdf" });
+      busy(false);
+      return loadFile(pdfFile);   // now it's a normal PDF — reuses the exact same, already-tested path
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't convert that Word document: " + (e && e.message ? e.message : e));
+      busy(false);
+    }
+  }
+
   async function loadFile(file) {
+    if (/\.docx$/i.test(file.name)) return loadDocxFile(file);
     const doc = newTab();   // every open (Open button, drag-drop, double-click-to-open) is its own tab
     doc.fileName = file.name || "document.pdf";
     renderTabs();
@@ -1653,6 +1680,55 @@ input[type=range]{accent-color:var(--brand);width:110px}
     } catch (e) {
       console.error(e);
       toast("Couldn't insert a page.");
+    } finally { busy(false); }
+  }
+
+  // Inserts a PNG/JPEG as a new page — same "structural edit, outside Ctrl+Z" category
+  // as Insert Blank Page, for the same reason (it changes the page count). The new
+  // page's width matches the current page (so it lines up with the rest of the
+  // document); its height comes from the image's own aspect ratio, so nothing gets
+  // stretched or cropped.
+  async function insertImagePage(file) {
+    if (!S.pdf || !file) return;
+    const isPng = /png$/i.test(file.type) || /\.png$/i.test(file.name);
+    const isJpg = /jpe?g$/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+    if (!isPng && !isJpg) { toast("Please choose a PNG or JPEG image."); return; }
+    const idx = currentPageIdx();
+    try {
+      busy(true, "Inserting image…");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bitmap = await createImageBitmap(new Blob([bytes]));
+      const imgW = bitmap.width, imgH = bitmap.height;
+      if (bitmap.close) bitmap.close();
+      if (!imgW || !imgH) throw new Error("couldn't read that image's dimensions");
+      await ensurePdflib();
+      const { PDFDocument } = PDFLib;
+      const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+      const ref = S.pages[idx];
+      const pageW = ref.wPts;
+      const pageH = pageW * (imgH / imgW);
+      const newPage = pdf.insertPage(idx + 1, [pageW, pageH]);
+      const img = isPng ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+      newPage.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
+      const newBytes = await pdf.save({ useObjectStreams: false });
+      S.bytes = newBytes;
+      const newDoc = await pdfjsLib.getDocument({ data: newBytes.slice(0) }).promise;
+      S.pdf = newDoc;
+      S.annots.forEach((a) => { if (a.page > idx) a.page += 1; });
+      S.sel = null;
+      if (S.pagesHost) { S.pagesHost.remove(); S.pagesHost = null; }
+      invalidateThumbs();
+      await buildPages();
+      showPagesHostFor(S);
+      layout();
+      refreshPageTotal();
+      markDirty();
+      if (S.thumbsOpen) buildThumbs();
+      goToPage(idx + 2);
+      toast("Inserted the image as a new page after page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't insert that image.");
     } finally { busy(false); }
   }
 
@@ -2073,6 +2149,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("rotateCCW").onclick = () => rotatePage(currentPageIdx(), 270);
     $("rotateCW").onclick = () => rotatePage(currentPageIdx(), 90);
     $("insertPageBtn").onclick = insertBlankPage;
+    $("insertImageBtn").onclick = () => $("insertImageInput").click();
+    $("insertImageInput").onchange = (e) => { const f = e.target.files[0]; if (f) insertImagePage(f); e.target.value = ""; };
     $("deletePageBtn").onclick = deletePage;
     $("thumbsBtn").onclick = toggleThumbs;
   }
