@@ -207,6 +207,122 @@ async fn install_update(state: tauri::State<'_, PendingUpdate>) -> Result<(), St
     }
 }
 
+/// Finds LibreOffice's soffice.exe, checking the common install locations first (its
+/// installer doesn't always add itself to PATH) and falling back to PATH itself.
+fn find_libreoffice() -> Option<std::path::PathBuf> {
+    for c in [
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+    ] {
+        let p = std::path::PathBuf::from(c);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    let output = std::process::Command::new("where").arg("soffice.exe").output().ok()?;
+    if output.status.success() {
+        let s = String::from_utf8(output.stdout).ok()?;
+        let first = s.lines().next()?.trim();
+        if !first.is_empty() {
+            return Some(std::path::PathBuf::from(first));
+        }
+    }
+    None
+}
+
+/// Runs a child process but doesn't wait forever — Word's COM automation in particular
+/// is known to hang indefinitely if it hits an unexpected dialog (format warnings,
+/// update checks, etc.), and a stuck conversion shouldn't be able to freeze the app.
+fn run_with_timeout(cmd: &mut std::process::Command, timeout: std::time::Duration) -> bool {
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    return false;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+            Err(_) => return false,
+        }
+    }
+}
+
+/// Converts a .docx to PDF using whichever of LibreOffice or Word is actually installed —
+/// there's no way to know which, if either, a given computer has, so both are tried.
+/// Everything happens in a fresh temp folder that's cleaned up afterward either way.
+#[tauri::command]
+fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, String> {
+    let bytes = b64_decode(&b64)?;
+    let work_dir = std::env::temp_dir().join(format!("marginal-convert-{}", std::process::id()));
+    std::fs::create_dir_all(&work_dir).map_err(|e| e.to_string())?;
+
+    let stem = std::path::Path::new(&name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("document")
+        .to_string();
+    let input_path = work_dir.join(format!("{}.docx", stem));
+    let output_path = work_dir.join(format!("{}.pdf", stem));
+    let cleanup = || { let _ = std::fs::remove_dir_all(&work_dir); };
+
+    if let Err(e) = std::fs::write(&input_path, &bytes) {
+        cleanup();
+        return Err(e.to_string());
+    }
+
+    let mut converted = false;
+
+    if let Some(soffice) = find_libreoffice() {
+        let mut cmd = std::process::Command::new(&soffice);
+        cmd.args(["--headless", "--norestore", "--convert-to", "pdf", "--outdir"])
+            .arg(&work_dir)
+            .arg(&input_path);
+        if run_with_timeout(&mut cmd, std::time::Duration::from_secs(60)) && output_path.exists() {
+            converted = true;
+        }
+    }
+
+    if !converted {
+        let ps_script = format!(
+            "$ErrorActionPreference = 'Stop'; \
+             $word = New-Object -ComObject Word.Application; \
+             $word.Visible = $false; \
+             try {{ \
+                $doc = $word.Documents.Open('{input}'); \
+                $doc.SaveAs([ref]'{output}', [ref]17); \
+                $doc.Close() \
+             }} finally {{ $word.Quit() }}",
+            input = input_path.display(),
+            output = output_path.display()
+        );
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &ps_script]);
+        if run_with_timeout(&mut cmd, std::time::Duration::from_secs(60)) && output_path.exists() {
+            converted = true;
+        }
+    }
+
+    if !converted {
+        cleanup();
+        return Err("Couldn't find Word or LibreOffice on this computer. Install one of them, or convert the file to PDF yourself first.".into());
+    }
+
+    let pdf_bytes = match std::fs::read(&output_path) {
+        Ok(b) => b,
+        Err(e) => { cleanup(); return Err(e.to_string()); }
+    };
+    let result = serde_json::json!({ "name": format!("{}.pdf", stem), "b64": b64_encode(&pdf_bytes) });
+    cleanup();
+    Ok(result)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Path of the PDF this launch was asked to open (double-click in Explorer, etc.)
@@ -235,7 +351,8 @@ pub fn run() {
             open_default_apps_settings,
             save_file_as,
             check_for_update,
-            install_update
+            install_update,
+            convert_docx_to_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running Marginal");
