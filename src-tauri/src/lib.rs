@@ -156,7 +156,8 @@ fn open_default_apps_settings() -> Result<(), String> {
 /// so `window.__TAURI__.dialog` doesn't actually exist without a JS bundler (verified
 /// against Tauri's own source: the withGlobalTauri bundle only exposes
 /// app/core/dpi/event/image/menu/mocks/path/tray/webview/webviewWindow/window).
-/// Returns true if saved, false if the person cancelled the dialog (not an error).
+/// Returns the chosen path if saved (so the frontend can remember it for a future true
+/// Save), or None if the person cancelled the dialog — not an error.
 #[tauri::command]
 fn save_file_as(
     app: tauri::AppHandle,
@@ -164,7 +165,7 @@ fn save_file_as(
     filter_name: String,
     filter_ext: String,
     b64: String,
-) -> Result<bool, String> {
+) -> Result<Option<String>, String> {
     let bytes = b64_decode(&b64)?;
     let exts: Vec<&str> = filter_ext.split(',').map(|s| s.trim()).collect();
     let picked = app
@@ -177,10 +178,19 @@ fn save_file_as(
         Some(file_path) => {
             let path = file_path.into_path().map_err(|e| e.to_string())?;
             std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
-            Ok(true)
+            Ok(Some(path.to_string_lossy().to_string()))
         }
-        None => Ok(false), // person cancelled — not an error
+        None => Ok(None), // person cancelled — not an error
     }
+}
+
+/// True "Save" — writes straight to an already-known path, no dialog. Only ever called
+/// with a path this session already produced (via save_file_as or the native Open
+/// dialog), so this doesn't need its own picker or validation beyond the write itself.
+#[tauri::command]
+fn write_to_path(path: String, b64: String) -> Result<(), String> {
+    let bytes = b64_decode(&b64)?;
+    std::fs::write(&path, &bytes).map_err(|e| e.to_string())
 }
 
 /// Shows a native "Open" dialog (multi-select) and returns each chosen file's real path
@@ -300,6 +310,8 @@ fn convert_docx_bytes(stem: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
          $word.DisplayAlerts = 0; \
          try {{ \
             $doc = $word.Documents.Open('{input}', $false, $false, $false); \
+            $doc.Fields.Update(); \
+            $doc.Repaginate(); \
             $doc.SaveAs([ref]'{output}', [ref]17); \
             $doc.Close([ref]$false) \
          }} finally {{ $word.Quit() }}",
@@ -363,6 +375,7 @@ pub fn run() {
             set_default_pdf_app,
             open_default_apps_settings,
             save_file_as,
+            write_to_path,
             open_files_dialog,
             check_for_update,
             install_update,
