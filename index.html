@@ -521,23 +521,27 @@ input[type=range]{accent-color:var(--brand);width:110px}
         Preview
       </button>
       <div class="split">
-        <button class="btn primary" id="downloadBtn" disabled title="Download edited PDF (⌘/Ctrl+S)">
+        <button class="btn primary" id="downloadBtn" disabled title="Save As — always asks where to save (⌘/Ctrl+Shift+S)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-          Download
+          Save As
         </button>
-        <button class="btn primary caret" id="downloadMenuBtn" disabled aria-haspopup="true" aria-expanded="false" title="More download options">
+        <button class="btn primary caret" id="downloadMenuBtn" disabled aria-haspopup="true" aria-expanded="false" title="More save options">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="menu" id="downloadMenu" hidden role="menu">
+          <button id="dlSave" role="menuitem">
+            <strong>Save</strong><span>Writes back to this file's location — asks where only if we don't know it yet</span>
+          </button>
+          <div class="menu-sep"></div>
           <button id="dlAsIs" role="menuitem">
-            <strong>Download</strong><span>Keeps fillable form fields editable</span>
+            <strong>Save As</strong><span>Keeps fillable form fields editable</span>
           </button>
           <button id="dlFlat" role="menuitem">
-            <strong>Download flattened</strong><span>Locks form fields into static content</span>
+            <strong>Save As flattened</strong><span>Locks form fields into static content</span>
           </button>
           <div class="menu-sep"></div>
           <button id="dlCompress" role="menuitem">
-            <strong>Compress &amp; download</strong><span>Smaller file — pages become images, text no longer selectable</span>
+            <strong>Compress &amp; save</strong><span>Smaller file — pages become images, text no longer selectable</span>
           </button>
           <div class="menu-sep"></div>
           <button id="dlSplit" role="menuitem">
@@ -694,7 +698,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <div class="shortcuts-col">
         <div class="shortcuts-group">File</div>
         <div class="shortcuts-row"><span>Open a PDF</span><kbd>⌘/Ctrl O</kbd></div>
-        <div class="shortcuts-row"><span>Download</span><kbd>⌘/Ctrl S</kbd></div>
+        <div class="shortcuts-row"><span>Save</span><kbd>⌘/Ctrl S</kbd></div>
+        <div class="shortcuts-row"><span>Save As</span><kbd>⌘/Ctrl Shift S</kbd></div>
         <div class="shortcuts-row"><span>Print</span><kbd>⌘/Ctrl P</kbd></div>
         <div class="shortcuts-row"><span>Find in document</span><kbd>⌘/Ctrl F</kbd></div>
         <div class="shortcuts-group">Tools</div>
@@ -817,7 +822,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     <div class="sheet-head">
       <h2>Preview</h2>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn primary" id="previewDownload">Download</button>
+        <button class="btn primary" id="previewDownload">Save As</button>
         <button class="iconbtn" id="previewClose" title="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
@@ -1138,6 +1143,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("dropOpenBtn").onclick = pickFile;
     $("fileInput").onchange = (e) => { Array.from(e.target.files).forEach((f) => loadFile(f)); e.target.value = ""; };
     $("downloadBtn").onclick = () => doDownload();
+    $("dlSave").onclick = () => { closeDownloadMenu(); doSave(); };
     $("dlAsIs").onclick = () => { closeDownloadMenu(); doDownload(); };
     $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
     $("dlSplit").onclick = () => { closeDownloadMenu(); openSplitModal(); };
@@ -1150,7 +1156,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("previewBtn").onclick = doPreview;
     $("printBtn").onclick = () => doPreview({ print: true });
     $("previewClose").onclick = closePreview;
-    $("previewDownload").onclick = () => { if (S._previewBytes) saveFile(S._previewBytes, outName(), "application/pdf"); };
+    $("previewDownload").onclick = async () => {
+      if (!S._previewBytes) return;
+      const saved = await saveFile(S._previewBytes, outName(), "application/pdf");
+      if (typeof saved === "string") S.filePath = saved;
+    };
     $("undoBtn").onclick = undo;
     $("redoBtn").onclick = redo;
   }
@@ -2742,7 +2752,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (typing || modalOpen) return;
       if (e.key === "?") { $("shortcutsModal").hidden = false; return; }
       if (mod && e.code === "KeyO") { e.preventDefault(); pickFile(); return; }
-      if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
+      if (mod && e.shiftKey && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
+      if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doSave(); return; }
       if (mod && e.code === "KeyP") { e.preventDefault(); if (!$("printBtn").disabled) doPreview({ print: true }); return; }
       if (mod && e.shiftKey && e.code === "KeyZ") { e.preventDefault(); redo(); return; }
       if (mod && e.code === "KeyY") { e.preventDefault(); redo(); return; }
@@ -2972,6 +2983,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const name = outName(opts.flatten);
       const saved = await saveFile(bytes, name, "application/pdf");
       if (!saved) return;
+      if (typeof saved === "string") S.filePath = saved;   // Save As sets this document's home for future Saves
       S.dirty = false; renderTabs();
       toast(skippedText
         ? "Saved " + name + " — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
@@ -2979,6 +2991,27 @@ input[type=range]{accent-color:var(--brand);width:110px}
     } catch (err) {
       console.error(err);
       toast("Something went wrong while saving.");
+    } finally { busy(false); }
+  }
+
+  // True "Save" — writes straight back to the file's known location, no dialog. Only
+  // possible when we actually know that location (opened via the native desktop Open
+  // dialog, or already Saved As once this session) — otherwise there's nothing to
+  // overwrite, so this quietly becomes Save As instead of failing.
+  async function doSave() {
+    if (!S.bytes) return;
+    if (!S.filePath) return doDownload();
+    try {
+      busy(true, "Saving…");
+      const { bytes, skippedText } = await buildPdfBytes();
+      await window.__TAURI__.core.invoke("write_to_path", { path: S.filePath, b64: _b64EncodeU8(bytes) });
+      S.dirty = false; renderTabs();
+      toast(skippedText
+        ? "Saved — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
+        : "Saved");
+    } catch (err) {
+      console.error(err);
+      toast("Couldn't save — try Save As instead.");
     } finally { busy(false); }
   }
 
@@ -3053,13 +3086,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (T) {
       try {
         const b64 = _b64EncodeU8(bytes);
-        const ok = await T.core.invoke("save_file_as", {
+        const path = await T.core.invoke("save_file_as", {
           defaultName: suggestedName,
           filterName: isPdf ? "PDF Document" : "Zip Archive",
           filterExt: isPdf ? "pdf" : "zip",
           b64,
         });
-        return !!ok;   // false = person cancelled the dialog — not an error
+        return path || false;   // a real path string (truthy) on success, false if cancelled
       } catch (e) {
         // The native dialog isn't available (e.g. the installed app's Rust side predates
         // this command, or it errored). Don't dead-end here — fall through to a plain
