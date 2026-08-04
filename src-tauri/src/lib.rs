@@ -83,6 +83,8 @@ fn read_openable_file(path: &str) -> Option<serde_json::Value> {
         .to_string();
     if is_docx {
         let pdf_bytes = convert_docx_bytes(&stem, &bytes).ok()?;
+        // No "path" here on purpose: what we're handing back is a temporary converted
+        // PDF, not the .docx on disk, so it must not become a Save target.
         Some(serde_json::json!({ "name": format!("{}.pdf", stem), "b64": b64_encode(&pdf_bytes) }))
     } else {
         let name = std::path::Path::new(path)
@@ -90,7 +92,7 @@ fn read_openable_file(path: &str) -> Option<serde_json::Value> {
             .and_then(|s| s.to_str())
             .unwrap_or("document.pdf")
             .to_string();
-        Some(serde_json::json!({ "name": name, "b64": b64_encode(&bytes) }))
+        Some(serde_json::json!({ "name": name, "path": path, "b64": b64_encode(&bytes) }))
     }
 }
 
@@ -347,29 +349,47 @@ fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, S
     Ok(serde_json::json!({ "name": format!("{}.pdf", stem), "b64": b64_encode(&pdf_bytes) }))
 }
 
+/// Opens another Marginal window by launching a second copy of the app. Each window is
+/// its own process, which is what makes "one window per PDF" work with no cross-window
+/// bookkeeping: Windows already hands each launch its own file argument.
+#[tauri::command]
+fn open_in_new_window(path: Option<String>) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let mut cmd = std::process::Command::new(exe);
+    if let Some(p) = path {
+        cmd.arg(p);
+    }
+    cmd.spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Closes this window for real. The close button is intercepted (see on_window_event) so
+/// unsaved work can be caught first; once the person has decided, the frontend calls this.
+#[tauri::command]
+fn force_close(window: tauri::Window) -> Result<(), String> {
+    window.destroy().map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Path of the file this launch was asked to open (double-click in Explorer, "Open
-    // With", etc.) — a .docx is converted to PDF automatically, same as every other path.
+    // With", or a path handed over by open_in_new_window). A .docx is converted to PDF
+    // automatically, same as every other route into the app.
     let launched_with = first_openable_file(&std::env::args().collect::<Vec<_>>());
 
     tauri::Builder::default()
-        // If Marginal is already running and Windows opens another file with it,
-        // that second launch forwards its args here instead of starting a new window.
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            if let Some(path) = first_openable_file(&argv) {
-                if let Some(payload) = read_openable_file(&path) {
-                    let _ = app.emit("open-pdf", payload);
-                }
-            }
-            if let Some(win) = app.get_webview_window("main") {
-                let _ = win.set_focus();
-            }
-        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(OpenedFile(Mutex::new(launched_with)))
         .manage(PendingUpdate(Mutex::new(None)))
+        // Don't let the window close immediately -- the frontend needs a chance to warn
+        // about unsaved edits. It calls force_close once the person has decided.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.emit("close-requested", ());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             take_opened_pdf,
             set_default_pdf_app,
@@ -377,6 +397,8 @@ pub fn run() {
             save_file_as,
             write_to_path,
             open_files_dialog,
+            open_in_new_window,
+            force_close,
             check_for_update,
             install_update,
             convert_docx_to_pdf
