@@ -367,7 +367,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .an.text[contenteditable="true"]{outline:2px solid var(--brand);background:rgba(74,58,217,.05);
   min-width:8px;cursor:text;pointer-events:auto}
 /* dashed outline is an on-screen guide only — export draws just the fill */
-.an.whiteout{border-radius:1px;border:1px dashed #7b8397}
+.an.whiteout,.an.cover{border-radius:1px;border:1px dashed #7b8397}
 .an.highlight{mix-blend-mode:multiply;border-radius:1px}
 /* draw is an <svg> that is itself the mark; only its transparent hit path is
    clickable, and only in Select mode */
@@ -1373,18 +1373,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // Font-size control: a dropdown of common sizes that also accepts a typed custom value
   // (an <input list=...> combo — shows presets, but you can just type any number too).
-  const FONT_SIZE_PRESETS = [6, 7, 8, 9, 10, 10.5, 11, 12, 14, 15, 16, 18, 20, 24, 28, 32, 36, 40, 48, 60, 72];
-  let _fsSeq = 0;
   const round1 = (n) => Math.round(n * 10) / 10;
   function buildFontSizeControl(value, onChange) {
     const box = document.createElement("div"); box.className = "ctl";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Size";
-    const listId = "fsPresets" + (_fsSeq++);
-    const dl = document.createElement("datalist"); dl.id = listId;
-    FONT_SIZE_PRESETS.forEach((s) => { const o = document.createElement("option"); o.value = String(s); dl.appendChild(o); });
+    // Plain number field on purpose: the old datalist added a dropdown caret that got in
+    // the way far more than the preset list helped.
     const inp = document.createElement("input");
     inp.type = "number"; inp.className = "sizeinput"; inp.min = "1"; inp.max = "400"; inp.step = "0.5";
-    inp.setAttribute("list", listId);
     inp.value = round1(value);
     const commit = () => {
       let n = parseFloat(inp.value);
@@ -1395,7 +1391,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     };
     inp.addEventListener("change", commit);
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); inp.blur(); } });
-    box.append(lbl, inp, dl);
+    box.append(lbl, inp);
     return box;
   }
 
@@ -1412,7 +1408,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   // the family that owns a given annotation type
-  function familyOf(a) { return a.type === "text" ? "text" : a.type; }
+  function familyOf(a) { return a.type === "text" ? "text" : a.type === "cover" ? "whiteout" : a.type; }
 
   // Editor shown in the strip when a mark is selected (color + a real Size slider).
   const SEL_SIZE_RANGE = { text: [6, 96], check: [4, 240], sign: [40, 600] };
@@ -2338,15 +2334,29 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const y = (sr.top - or.top) / S.zoom;
     const w = sr.width / S.zoom;
     const h = sr.height / S.zoom;
+    const idx = rec.num - 1;
+    // The original text layer stays underneath after an edit, so clicking the same words
+    // again used to create a SECOND editable copy holding the original value. Both then
+    // exported on top of each other — the old value and the new one, overlapping. If this
+    // run has already been converted, just reopen that edit instead.
+    const tol = Math.max(3, h * 0.6);
+    const already = S.annots.find((a) => a.type === "text" && a.page === idx &&
+      Math.abs(a.x - x) < tol && Math.abs(a.y - y) < tol);
+    if (already) {
+      const elExisting = elFor(already.id);
+      if (elExisting) { enterEdit(elExisting, already); return; }
+    }
     const text = span.textContent;
     // text-layer spans render at fontSize = points * zoom (line-height 1), so this recovers the size
     const size = Math.max(4, +(sr.height / S.zoom).toFixed(1));
     const font = detectFontKey(span);
     const bg = sampleBg(rec, x, y, w, h);
     const color = sampleInk(rec, x, y, w, h);
-    const idx = rec.num - 1;
     pushUndo();
-    const wo = { id: nid(), page: idx, type: "whiteout", x: x - 1, y: y - 1, w: w + 2, h: h + 2, color: bg };
+    // "cover" (not "whiteout"): this hides the words underneath without rasterising the
+    // whole page. Using whiteout here meant editing one field flattened every bit of text
+    // on that page into an image, destroying search and selection across the document.
+    const wo = { id: nid(), page: idx, type: "cover", x: x - 1, y: y - 1, w: w + 2, h: h + 2, color: bg };
     const tx = { id: nid(), page: idx, type: "text", x: x, y: y, text: text, size: size, color: color, font: font };
     S.annots.push(wo, tx);
     layout();
@@ -2573,7 +2583,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const fc = cssFont(a.font);
       el.style.fontFamily = fc[0]; el.style.fontWeight = fc[1]; el.style.fontStyle = fc[2];
       el.ondblclick = () => enterEdit(el, a);
-    } else if (a.type === "whiteout" || a.type === "highlight") {
+    } else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight") {
       el = div("an " + a.type);
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
@@ -2672,7 +2682,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function positionEl(el, a) {
     const z = S.zoom;
     if (a.type === "text") { el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px"; }
-    else if (a.type === "whiteout" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
+    else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
     } else if (a.type === "draw") {
@@ -2707,7 +2717,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.appendChild(del);
     }
     // resize handle for rects and signatures
-    if (a.type === "whiteout" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
+    if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
       const h = document.createElement("div"); h.className = "handle";
       h.addEventListener("pointerdown", (e) => startResize(e, a, el, h));
       el.appendChild(h);
@@ -2981,7 +2991,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         const ctx = canvas.getContext("2d");
         await rec.page.render({ canvasContext: ctx, viewport: vp }).promise;
         for (const a of S.annots) {
-          if (a.page === pageIdx && a.type === "whiteout") {
+          if (a.page === pageIdx && (a.type === "whiteout" || a.type === "cover")) {
             ctx.fillStyle = a.color;
             ctx.fillRect(a.x * scale, a.y * scale, a.w * scale, a.h * scale);
           }
@@ -3014,6 +3024,21 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const pages = pdf.getPages();
     let skippedText = 0;
 
+    // Covers first: these hide words underneath an edited text run. They must all land
+    // before any text is drawn, otherwise a cover created later would paint over an
+    // earlier edit -- which is how the overlapping old/new values happened.
+    for (const a of S.annots) {
+      if (a.type !== "cover") continue;
+      const pg = pages[a.page]; if (!pg) continue;
+      const Wu = pg.getWidth(), Hu = pg.getHeight();
+      const rot = ((pg.getRotation().angle % 360) + 360) % 360;
+      const M = mapper(rot, Wu, Hu);
+      const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
+      const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
+      const w = Math.abs(c1.x - c2.x), h = Math.abs(c1.y - c2.y);
+      pg.drawRectangle({ x, y, width: w, height: h, color: hex(rgb, a.color) });
+    }
+
       for (const a of S.annots) {
         const pg = pages[a.page]; if (!pg) continue;
         const Wu = pg.getWidth(), Hu = pg.getHeight();
@@ -3022,6 +3047,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
         if (a.type === "whiteout") {
           // handled above by the rasterization pass — drawing it again here would be redundant
+        } else if (a.type === "cover") {
+          // handled in the cover pass before this loop, so it can never sit on top of text
         } else if (a.type === "highlight") {
           const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
           const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
