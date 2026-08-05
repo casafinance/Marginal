@@ -55,6 +55,7 @@ button{font-family:inherit}
   height:var(--h-header);flex:none;display:flex;align-items:center;gap:16px;
   padding:0 16px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:20;
+  overflow-x:auto;overflow-y:visible;scrollbar-width:thin;
 }
 .brand{display:flex;align-items:baseline;gap:8px;user-select:none}
 .brand .mark{
@@ -229,6 +230,9 @@ button{font-family:inherit}
   height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
   padding:0 14px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:15;
+  /* Never clip: on a narrow window the controls scroll sideways rather than becoming
+     unreachable off the right edge. */
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
 }
 .toolgroup{display:flex;align-items:center;gap:4px;
   background:var(--panel-soft);border:1px solid var(--stroke);
@@ -314,8 +318,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
   background:#fff;border-radius:2px}
 .thumbCard .thumbLabel{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-soft)}
 .thumbCard.current .thumbLabel{color:var(--text);font-weight:600}
+.thumbCard{touch-action:none}   /* let pointer-drag reordering work without the webview panning */
 .thumbCard.dragging{opacity:.4}
-.thumbCard.dragOver{border-color:var(--brand);background:var(--panel-soft)}
+/* a clear insertion marker on the card the page will move to */
+.thumbCard.dragOver{border-color:var(--brand);background:var(--brand-weak);
+  box-shadow:0 0 0 2px var(--brand) inset}
 .thumbMoveBtns{display:flex;gap:2px}
 .thumbMoveBtns button{width:16px;height:16px;border:none;background:transparent;color:var(--text-soft);
   border-radius:4px;display:grid;place-items:center;cursor:pointer}
@@ -523,6 +530,23 @@ input[type=range]{accent-color:var(--brand);width:110px}
 /* Page number that stays visible while scrolling, instead of only the small toolbar box */
 .page-label{position:absolute;top:-19px;left:0;font-size:11px;color:var(--text-soft);
   font-family:var(--font-mono);letter-spacing:.02em;pointer-events:none;user-select:none}
+
+/* Keep the bars' scrollbars unobtrusive -- they only appear when the window is too narrow */
+.toolbar::-webkit-scrollbar,.header::-webkit-scrollbar{height:5px}
+.toolbar::-webkit-scrollbar-thumb,.header::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:3px}
+.toolbar::-webkit-scrollbar-track,.header::-webkit-scrollbar-track{background:transparent}
+/* The tool group and action group must not be squeezed to nothing before scrolling starts */
+.toolbar > *,.header > *{flex-shrink:0}
+.header .spacer{flex:1 1 auto;min-width:0}
+
+/* Editable output name for split/merge, prefilled from the source so the common case
+   needs no typing at all. */
+.name-row{display:flex;align-items:center;gap:10px;padding:10px 22px 0}
+.name-row .lbl{font-size:12px;color:var(--text-soft);flex:none}
+.name-input{flex:1;min-width:0;font-size:13px;padding:6px 9px;border-radius:7px;
+  border:1px solid var(--stroke);background:var(--panel-soft);color:var(--text)}
+.name-input:focus{outline:none;border-color:var(--brand);background:#fff}
+.name-hint{font-size:11.5px;color:var(--text-soft);font-family:var(--font-mono);flex:none}
 
 </style>
 </head>
@@ -811,6 +835,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <div class="merge-list" id="mergeList"></div>
       <div class="merge-empty" id="mergeEmpty">No files added yet.</div>
     </div>
+    <div class="name-row">
+      <label class="lbl" for="mergeOutName">Save as</label>
+      <input id="mergeOutName" class="name-input" spellcheck="false" autocomplete="off">
+      <span class="name-hint">.pdf</span>
+    </div>
     <div class="sheet-foot">
       <div class="split-summary" id="mergeSummary"></div>
       <div style="display:flex;gap:10px">
@@ -850,11 +879,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </div>
       <div class="split-pages" id="splitPages"></div>
     </div>
+    <div class="name-row">
+      <label class="lbl" for="splitBaseName">Name the parts</label>
+      <input id="splitBaseName" class="name-input" spellcheck="false" autocomplete="off">
+      <span class="name-hint" id="splitNameHint"></span>
+    </div>
     <div class="sheet-foot">
       <div class="split-summary" id="splitSummary"></div>
       <div style="display:flex;gap:10px">
         <button class="btn ghost" id="splitCancel">Cancel</button>
-        <button class="btn primary" id="splitGo" disabled>Split &amp; download</button>
+        <button class="btn primary" id="splitGo" disabled>Split &amp; save</button>
       </div>
     </div>
   </div>
@@ -1183,7 +1217,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   let uid = 1;
-  let _dragFromIdx = null;   // thumbnail drag-and-drop reorder state
   const nid = () => "a" + uid++;
 
   // ============================================================
@@ -2013,34 +2046,67 @@ input[type=range]{accent-color:var(--brand);width:110px}
       moves.append(up, down);
       label.append(num, moves);
       card.append(canvas, label);
-      card.onclick = () => goToPage(idx + 1);
-      card.draggable = true;
-      card.addEventListener("dragstart", (e) => {
-        _dragFromIdx = +card.dataset.idx;
-        card.classList.add("dragging");
-        try { e.dataTransfer.setData("text/plain", String(_dragFromIdx)); e.dataTransfer.effectAllowed = "move"; } catch (_) {}
-      });
-      card.addEventListener("dragend", () => {
-        _dragFromIdx = null;
-        S.thumbsHost.querySelectorAll(".thumbCard").forEach((c) => c.classList.remove("dragging", "dragOver"));
-      });
-      card.addEventListener("dragover", (e) => {
-        if (_dragFromIdx == null) return;
-        e.preventDefault();
-        card.classList.add("dragOver");
-      });
-      card.addEventListener("dragleave", () => card.classList.remove("dragOver"));
-      card.addEventListener("drop", (e) => {
-        e.preventDefault();
-        card.classList.remove("dragOver");
-        const from = _dragFromIdx != null ? _dragFromIdx : +e.dataTransfer.getData("text/plain");
-        const to = +card.dataset.idx;
-        if (isFinite(from) && from !== to) dragReorderPage(from, to);
+      // Reordering uses pointer events rather than HTML5 drag-and-drop on purpose: inside
+      // the desktop webview the OS-level file-drop handling swallows dragstart/drop, so the
+      // HTML5 version silently did nothing. Pointer events aren't affected by that.
+      card.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest(".thumbMoveBtns")) return;   // the up/down buttons
+        beginThumbDrag(e, card);
       });
       rec.thumbCard = card; rec.thumbCanvas = canvas; rec.thumbRendered = false;
       host.appendChild(card);
       S.thumbIo.observe(card);
     });
+  }
+
+  // Pointer-driven page reordering in the sidebar. A short press is still a click (jump to
+  // that page); only once the pointer has actually moved does it become a drag, so the two
+  // gestures don't fight each other.
+  function beginThumbDrag(e, card) {
+    const startX = e.clientX, startY = e.clientY;
+    const from = +card.dataset.idx;
+    let dragging = false;
+    let target = from;
+
+    const cardsNow = () => Array.from(S.thumbsHost ? S.thumbsHost.querySelectorAll(".thumbCard") : []);
+    const clearMarks = () => cardsNow().forEach((c) => c.classList.remove("dragging", "dragOver"));
+
+    const move = (ev) => {
+      if (!dragging && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+      if (!dragging) {
+        dragging = true;
+        card.classList.add("dragging");
+        try { card.setPointerCapture(ev.pointerId); } catch (_) {}
+      }
+      ev.preventDefault();
+      // Work out which thumbnail the pointer is currently over by hit-testing the cards'
+      // own boxes -- elementFromPoint would just return the dragged card under the cursor.
+      let best = null, bestDist = Infinity;
+      for (const c of cardsNow()) {
+        const r = c.getBoundingClientRect();
+        const cy = r.top + r.height / 2, cx = r.left + r.width / 2;
+        const d = Math.hypot(ev.clientX - cx, ev.clientY - cy);
+        if (d < bestDist) { bestDist = d; best = c; }
+      }
+      cardsNow().forEach((c) => { if (c !== card) c.classList.remove("dragOver"); });
+      if (best && best !== card) { best.classList.add("dragOver"); target = +best.dataset.idx; }
+      else target = from;
+    };
+
+    const up = (ev) => {
+      card.removeEventListener("pointermove", move);
+      card.removeEventListener("pointerup", up);
+      card.removeEventListener("pointercancel", up);
+      try { card.releasePointerCapture(ev.pointerId); } catch (_) {}
+      clearMarks();
+      if (!dragging) { goToPage(from + 1); return; }   // never moved -> treat as a click
+      if (target !== from) dragReorderPage(from, target);
+    };
+
+    card.addEventListener("pointermove", move);
+    card.addEventListener("pointerup", up);
+    card.addEventListener("pointercancel", up);
   }
 
   function renderThumb(idx) {
@@ -3087,7 +3153,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (!rec || !pg) continue;
       try {
         const scale = 2;   // ~144 DPI-equivalent — sharp enough without ballooning file size
-        const vp = rec.page.getViewport({ scale });   // same visual/rotated space as on-screen
+        // Must include the user's rotation: the redaction rectangles below are in the
+        // on-screen (rotated) coordinate space, so the canvas has to be too.
+        const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
         const canvas = document.createElement("canvas");
         canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
         const ctx = canvas.getContext("2d");
@@ -3587,7 +3655,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   async function ocrPage(worker, rec) {
     const scale = Math.min(3, 2200 / rec.wPts);
-    const vp = rec.page.getViewport({ scale });
+    const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
     const c = document.createElement("canvas");
     c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
     await rec.page.render({ canvasContext: c.getContext("2d", { alpha: false }), viewport: vp }).promise;
@@ -3944,6 +4012,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function openSplitModal() {
+    // Prefill from the document being split so the common case needs no typing.
+    $("splitBaseName").value = S.fileName.replace(/\.pdf$/i, "");
     if (!S.pages.length) return;
     splitCuts = new Set();
     $("extractInput").value = "";
@@ -4043,6 +4113,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   function renderSplitSummary() {
     const groups = splitGroups();
+    const nameBase = ($("splitBaseName").value || "").trim() || S.fileName.replace(/\.pdf$/i, "");
+    $("splitNameHint").textContent = groups.length > 1
+      ? "\u2192 " + nameBase + " part 1 (p1-" + (groups[0][1] + 1) + ").pdf, \u2026"
+      : "";
     const sum = $("splitSummary");
     sum.innerHTML = groups.length < 2
       ? "<strong>1 file</strong> — click the + on a part to split it, or use a preset above"
@@ -4083,7 +4157,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const { bytes } = await buildPdfBytes();
       const { PDFDocument } = PDFLib;
       const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const base = S.fileName.replace(/\.pdf$/i, "");
+      // Defaults to the document being split, but respects an edited name.
+      const typed = ($("splitBaseName").value || "").trim();
+      const base = (typed || S.fileName.replace(/\.pdf$/i, "")).replace(/\.pdf$/i, "");
       const files = [];
       for (let k = 0; k < groups.length; k++) {
         const [a, b] = groups[k];
@@ -4139,6 +4215,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   function openMergeModal() {
     mergeFiles = [];
+    delete $("mergeOutName").dataset.touched;
+    $("mergeOutName").value = "";
     renderMergeList();
     $("mergeModal").hidden = false;
   }
@@ -4167,6 +4245,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       row.append(num, name, size, actions);
       list.appendChild(row);
     });
+    // Track the first file's name until the person edits it themselves.
+    const outEl = $("mergeOutName");
+    if (!outEl.dataset.touched) {
+      outEl.value = mergeFiles.length ? mergeFiles[0].name.replace(/\.pdf$/i, "") : "";
+    }
     $("mergeSummary").innerHTML = mergeFiles.length
       ? "<strong>" + mergeFiles.length + (mergeFiles.length === 1 ? " file</strong>" : " files</strong>") + " will be combined, in this order"
       : "Add at least 2 files to merge";
@@ -4198,7 +4281,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
         copied.forEach((pg) => out.addPage(pg));
       }
       const bytes = await out.save({ useObjectStreams: false });
-      const name = "Merged (" + mergeFiles.length + " files).pdf";
+      // Defaults to the first file in the list, but respects an edited name.
+      const typedM = ($("mergeOutName").value || "").trim().replace(/\.pdf$/i, "");
+      const fallback = mergeFiles.length ? mergeFiles[0].name.replace(/\.pdf$/i, "") : "Merged";
+      const name = (typedM || fallback) + ".pdf";
       const saved = await saveFile(bytes, name, "application/pdf");
       if (!saved) return;
       closeMergeModal();
@@ -4216,6 +4302,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("mergeAddBtn").onclick = () => $("mergeFileInput").click();
     $("mergeFileInput").onchange = (e) => { addMergeFiles(e.target.files); e.target.value = ""; };
     $("mergeGo").onclick = doMerge;
+    $("mergeOutName").addEventListener("input", () => { $("mergeOutName").dataset.touched = "1"; });
   }
 
   function wireSplitModal() {
@@ -4225,6 +4312,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("splitEveryApply").onclick = applyEveryN;
     $("splitEqualApply").onclick = applyEqualN;
     $("splitClear").onclick = () => { splitCuts = new Set(); renderSplit(); };
+    $("splitBaseName").addEventListener("input", renderSplitSummary);
     $("extractInput").addEventListener("input", updateExtractStatus);
     $("extractInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("extractGo").disabled) { e.preventDefault(); doExtract(); } });
     $("extractGo").onclick = doExtract;
