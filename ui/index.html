@@ -516,13 +516,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
 }
 
 
-/* Undo/redo depth: without a visible count it's not obvious how far back you can go,
-   so people avoid experimenting. */
-.ur-count{display:inline-grid;place-items:center;min-width:15px;height:15px;padding:0 3px;
-  margin-left:5px;border-radius:8px;background:var(--brand-weak);color:var(--brand);
-  font-size:10px;font-weight:700;font-family:var(--font-mono);line-height:1}
-.ur-count:empty{display:none}
-.btn:disabled .ur-count{background:var(--stroke);color:var(--text-soft)}
+/* Undo / Redo / History read as one group: a labelled Undo, then two icon buttons.
+   Depth used to sit in badges on the buttons, but that crowded them (and squeezed the redo
+   icon out of its fixed-width box) - it belongs in the tooltip and the history panel. */
+.histwrap{position:relative;flex:none;margin-left:-4px}
+#redoBtn{margin-left:-4px}
 /* Page number that stays visible while scrolling, instead of only the small toolbar box */
 .page-label{position:absolute;top:-19px;left:0;font-size:11px;color:var(--text-soft);
   font-family:var(--font-mono);letter-spacing:.02em;pointer-events:none;user-select:none}
@@ -555,7 +553,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .merge-empty{padding:30px 0}
 
 /* ---------- Edit history dropdown ---------- */
-.histwrap{position:relative;flex:none}
 .histmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:270px;
   background:var(--panel);border:1px solid var(--stroke);border-radius:12px;
   box-shadow:var(--shadow-pop);overflow:hidden;display:flex;flex-direction:column}
@@ -722,11 +719,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
     <div class="tb-right">
       <button class="btn ghost" id="undoBtn" disabled title="Undo (⌘/Ctrl+Z)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
-        <span class="btn-label">Undo</span><span class="ur-count" id="undoCount"></span>
+        <span class="btn-label">Undo</span>
       </button>
       <button class="btn ghost iconly" id="redoBtn" disabled title="Redo (⌘/Ctrl+Shift+Z)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3"/></svg>
-        <span class="ur-count" id="redoCount"></span>
       </button>
       <div class="histwrap">
         <button class="btn ghost iconly" id="historyBtn" disabled aria-haspopup="true" aria-expanded="false" title="Edit history — jump to any point">
@@ -2430,8 +2426,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const rn = S.redo ? S.redo.length : 0;
     $("undoBtn").disabled = un === 0;
     $("redoBtn").disabled = rn === 0;
-    $("undoCount").textContent = un ? String(un) : "";
-    $("redoCount").textContent = rn ? String(rn) : "";
+    // depth is exposed as a data attribute (handy for debugging) but shown to the person
+    // through the tooltip and the history panel rather than a badge on the button
+    $("undoBtn").dataset.depth = String(un);
+    $("redoBtn").dataset.depth = String(rn);
     const hb = $("historyBtn");
     if (hb) hb.disabled = (un + rn) === 0;
     if (!$("historyMenu").hidden) renderHistory();   // keep an open panel current
