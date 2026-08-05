@@ -423,8 +423,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
 /* ---------- Signature ---------- */
 .an.check{box-sizing:border-box;border-radius:2px;background:transparent}
 .an.check svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.an.sign{background:transparent}
-.an.sign img{width:100%;height:100%;display:block;pointer-events:none;user-select:none}
+.an.sign,.an.image{background:transparent}
+.an.sign img,.an.image img{width:100%;height:100%;display:block;pointer-events:none;user-select:none}
+/* Visible confirmation that an edge/centre snap took hold, so it's clear the alignment
+   was deliberate rather than just close enough by eye. */
+.an.image.snapped{outline:2px solid var(--brand);outline-offset:0}
 .workspace.tool-signplace .overlay{cursor:copy;pointer-events:auto}
 
 .modal{position:fixed;inset:0;background:rgba(22,27,40,.5);backdrop-filter:blur(3px);
@@ -676,7 +679,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <button class="zbtn" id="deletePageBtn" disabled title="Delete this page">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 11h6"/></svg>
         </button>
-        <button class="zbtn" id="insertImageBtn" disabled title="Insert an image (PNG/JPG) as a new page">
+        <button class="zbtn" id="insertImageBtn" disabled title="Place an image on this page - drag to move, corner to resize, snaps to the page edges">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17 4.5-4.5c.8-.8 2-.8 2.8 0L18 18"/></svg>
         </button>
         <input type="file" id="insertImageInput" accept="image/png,image/jpeg,.png,.jpg,.jpeg" class="hidden">
@@ -1565,7 +1568,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     pushUndo();
     if (a.type === "text") a.size = val;
     else if (a.type === "check") { a.w = val; a.h = val; }
-    else if (a.type === "sign") { const r = a.ratio || (a.w / a.h) || 1; a.w = val; a.h = val / r; }
+    else if (a.type === "sign" || a.type === "image") { const r = a.ratio || (a.w / a.h) || 1; a.w = val; a.h = val / r; }
     else if (a.w != null) { a.w = val; a.h = val; }
     layout();
   }
@@ -1812,6 +1815,51 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // page's width matches the current page (so it lines up with the rest of the
   // document); its height comes from the image's own aspect ratio, so nothing gets
   // stretched or cropped.
+  // Places a picture on the current page as a movable, resizable object. Starts at a
+  // readable size (about half the page width, never taller than the page) rather than
+  // full-bleed, so it's obvious it can be dragged and scaled. Drag it near an edge and it
+  // snaps flush; pull the corner to the far edge and it covers the whole page.
+  async function placeImage(file) {
+    if (!S.pdf || !file) return;
+    const isPng = /png$/i.test(file.type) || /\.png$/i.test(file.name);
+    const isJpg = /jpe?g$/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+    if (!isPng && !isJpg) { toast("Please choose a PNG or JPEG image."); return; }
+    const idx = currentPageIdx();
+    const rec = S.pages[idx];
+    if (!rec) return;
+    try {
+      busy(true, "Placing image…");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const dataUrl = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = () => rej(new Error("couldn't read that image"));
+        fr.readAsDataURL(new Blob([bytes], { type: isPng ? "image/png" : "image/jpeg" }));
+      });
+      const bmp = await createImageBitmap(new Blob([bytes]));
+      const iw = bmp.width, ih = bmp.height;
+      if (bmp.close) bmp.close();
+      if (!iw || !ih) throw new Error("couldn't read that image's dimensions");
+      const ratio = iw / ih;
+      let w = rec.wPts * 0.5;
+      let h = w / ratio;
+      if (h > rec.hPts * 0.8) { h = rec.hPts * 0.8; w = h * ratio; }
+      const x = (rec.wPts - w) / 2;
+      const y = (rec.hPts - h) / 2;
+      pushUndo();
+      const a = { id: nid(), page: idx, type: "image", x, y, w, h, dataUrl, ratio };
+      S.annots.push(a);
+      layout();
+      select(a.id);
+      setTool("move");
+      markDirty();
+      toast("Image placed — drag to move, corner to resize. It snaps to the page edges.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't place that image.");
+    } finally { busy(false); }
+  }
+
   async function insertImagePage(file) {
     if (!S.pdf || !file) return;
     const isPng = /png$/i.test(file.type) || /\.png$/i.test(file.name);
@@ -2290,7 +2338,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("rotateCW").onclick = () => rotatePage(currentPageIdx(), 90);
     $("insertPageBtn").onclick = insertBlankPage;
     $("insertImageBtn").onclick = () => $("insertImageInput").click();
-    $("insertImageInput").onchange = (e) => { const f = e.target.files[0]; if (f) insertImagePage(f); e.target.value = ""; };
+    $("insertImageInput").onchange = (e) => { const f = e.target.files[0]; if (f) placeImage(f); e.target.value = ""; };
     $("deletePageBtn").onclick = deletePage;
     $("thumbsBtn").onclick = toggleThumbs;
   }
@@ -2605,8 +2653,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
         pl.setAttribute("stroke-linejoin", "round");
         svg.appendChild(pl); el.appendChild(svg);
       }
-    } else if (a.type === "sign") {
-      el = div("an sign");
+    } else if (a.type === "sign" || a.type === "image") {
+      el = div("an " + a.type);
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
       const img = document.createElement("img"); img.src = a.dataUrl; img.draggable = false;
@@ -2670,19 +2718,65 @@ input[type=range]{accent-color:var(--brand);width:110px}
     el.addEventListener("pointerup", up);
   }
 
+  // ---- edge / centre snapping for placed images ----
+  // The threshold is derived from screen pixels, then converted to points, so snapping
+  // feels identical whether you're at 50% or 400% zoom.
+  const SNAP_PX = 8;
+  function snapBox(rec, x, y, w, h) {
+    const T = SNAP_PX / Math.max(0.05, S.zoom);
+    const W = rec.wPts, H = rec.hPts;
+    let sx = x, sy = y, hitX = null, hitY = null;
+    if (Math.abs(x) <= T) { sx = 0; hitX = "left"; }
+    else if (Math.abs((x + w) - W) <= T) { sx = W - w; hitX = "right"; }
+    else if (Math.abs((x + w / 2) - W / 2) <= T) { sx = (W - w) / 2; hitX = "centre"; }
+    if (Math.abs(y) <= T) { sy = 0; hitY = "top"; }
+    else if (Math.abs((y + h) - H) <= T) { sy = H - h; hitY = "bottom"; }
+    else if (Math.abs((y + h / 2) - H / 2) <= T) { sy = (H - h) / 2; hitY = "middle"; }
+    return { x: sx, y: sy, snapped: !!(hitX || hitY) };
+  }
+
+  // Snaps a resize so an image can sit flush to the right/bottom edge (and therefore
+  // cover the full page when dragged out from the top-left). Respects the aspect ratio:
+  // whichever edge is closer wins, and the other dimension follows.
+  function snapResize(rec, x, y, w, h, ratio) {
+    const T = SNAP_PX / Math.max(0.05, S.zoom);
+    const W = rec.wPts, H = rec.hPts;
+    const dRight = Math.abs((x + w) - W), dBottom = Math.abs((y + h) - H);
+    if (dRight <= T && (ratio ? dRight <= dBottom : true)) {
+      const nw = Math.max(4, W - x);
+      return { w: nw, h: ratio ? nw / ratio : h, snapped: true };
+    }
+    if (dBottom <= T) {
+      const nh = Math.max(4, H - y);
+      return { w: ratio ? nh * ratio : w, h: nh, snapped: true };
+    }
+    return { w, h, snapped: false };
+  }
+
   function snapshotGeom(a) {
     if (a.type === "draw") return { pts: a.pts.map((p) => ({ x: p.x, y: p.y })) };
     return { x: a.x, y: a.y };
   }
   function applyGeomDelta(a, o, dx, dy) {
-    if (a.type === "draw") a.pts = o.pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-    else { a.x = o.x + dx; a.y = o.y + dy; }
+    if (a.type === "draw") { a.pts = o.pts.map((p) => ({ x: p.x + dx, y: p.y + dy })); return; }
+    a.x = o.x + dx; a.y = o.y + dy;
+    // Placed images snap flush to the page edges and centre lines, which is what makes
+    // "line it up with the edge" possible by hand.
+    if (a.type === "image") {
+      const rec = S.pages[a.page];
+      if (rec) {
+        const sn = snapBox(rec, a.x, a.y, a.w, a.h);
+        a.x = sn.x; a.y = sn.y;
+        const el = elFor(a.id);
+        if (el) el.classList.toggle("snapped", sn.snapped);
+      }
+    }
   }
 
   function positionEl(el, a) {
     const z = S.zoom;
     if (a.type === "text") { el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px"; }
-    else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
+    else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "image" || a.type === "check") {
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
     } else if (a.type === "draw") {
@@ -2717,7 +2811,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.appendChild(del);
     }
     // resize handle for rects and signatures
-    if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
+    if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "image" || a.type === "check") {
       const h = document.createElement("div"); h.className = "handle";
       h.addEventListener("pointerdown", (e) => startResize(e, a, el, h));
       el.appendChild(h);
@@ -2727,13 +2821,21 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function startResize(e, a, el, h) {
     e.stopPropagation();
     const sx = e.clientX, sy = e.clientY, ow = a.w, oh = a.h;
-    const ratio = a.type === "sign" ? (a.ratio || ow / oh) : a.type === "check" ? 1 : 0;
+    const ratio = (a.type === "sign" || a.type === "image") ? (a.ratio || ow / oh) : a.type === "check" ? 1 : 0;
     pushUndo();
     h.setPointerCapture(e.pointerId);
     const move = (ev) => {
       let nw = Math.max(4, ow + (ev.clientX - sx) / S.zoom);
       if (ratio) { a.w = nw; a.h = nw / ratio; }
       else { a.w = nw; a.h = Math.max(4, oh + (ev.clientY - sy) / S.zoom); }
+      if (a.type === "image") {
+        const rec = S.pages[a.page];
+        if (rec) {
+          const sn = snapResize(rec, a.x, a.y, a.w, a.h, ratio);
+          a.w = sn.w; a.h = sn.h;
+          el.classList.toggle("snapped", sn.snapped);
+        }
+      }
       // update size in place; the handle/delete sit at the corners via CSS, so don't rebuild them
       const z = S.zoom;
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
@@ -3090,9 +3192,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
             pg.drawLine({ start: p1, end: p2, thickness: tk, color: col, lineCap: round });
             pg.drawLine({ start: p2, end: p3, thickness: tk, color: col, lineCap: round });
           }
-        } else if (a.type === "sign") {
+        } else if (a.type === "sign" || a.type === "image") {
           const bytes = dataUrlToBytes(a.dataUrl);
-          const img = await pdf.embedPng(bytes);
+          // signatures are always PNG, but a placed photo is usually JPEG
+          const img = /^data:image\/jpe?g/i.test(a.dataUrl) ? await pdf.embedJpg(bytes) : await pdf.embedPng(bytes);
           const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
           const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
           const w = Math.abs(c1.x - c2.x), h = Math.abs(c1.y - c2.y);
