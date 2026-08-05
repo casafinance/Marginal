@@ -55,7 +55,6 @@ button{font-family:inherit}
   height:var(--h-header);flex:none;display:flex;align-items:center;gap:16px;
   padding:0 16px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:20;
-  overflow-x:auto;overflow-y:visible;scrollbar-width:thin;
 }
 .brand{display:flex;align-items:baseline;gap:8px;user-select:none}
 .brand .mark{
@@ -230,9 +229,6 @@ button{font-family:inherit}
   height:var(--h-toolbar);min-height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
   padding:0 14px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:15;
-  /* Never clip: on a narrow window the controls scroll sideways rather than becoming
-     unreachable off the right edge. */
-  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
 }
 .toolgroup{display:flex;align-items:center;gap:4px;
   background:var(--panel-soft);border:1px solid var(--stroke);
@@ -532,7 +528,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
   font-family:var(--font-mono);letter-spacing:.02em;pointer-events:none;user-select:none}
 
 /* Keep the bars' scrollbars unobtrusive -- they only appear when the window is too narrow */
-.toolbar::-webkit-scrollbar,.header::-webkit-scrollbar{display:none}
 /* The tool group and action group must not be squeezed to nothing before scrolling starts */
 .toolbar > *,.header > *{flex-shrink:0}
 .header .spacer{flex:1 1 auto;min-width:0}
@@ -581,6 +576,28 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .hist-when{margin-left:auto;font-size:10.5px;color:var(--text-soft);font-family:var(--font-mono);flex:none}
 .hist-empty{padding:14px;font-size:12.5px;color:var(--text-soft);text-align:center}
 
+/* Fitting the bars without clipping.
+   Popups (the Save dropdown, the history panel) live inside these bars, so the bars can
+   never be scroll containers - that clips the popups. Instead the CONTENT gets smaller as
+   the window narrows: labels drop away and buttons become icon-only, so everything stays
+   reachable at any width. */
+@media (max-width:1240px){
+  .brand .tag{display:none}
+  .header{gap:10px}
+  .toolbar{gap:10px}
+}
+@media (max-width:1120px){
+  /* icon-only for the secondary actions; their tooltips still name them */
+  #printBtn .btn-label,#previewBtn .btn-label,#searchBtn .btn-label{display:none}
+  #printBtn,#previewBtn,#searchBtn{padding:8px;width:34px;justify-content:center}
+}
+@media (max-width:1000px){
+  #mergeBtn .btn-label,#openBtn .btn-label,#undoBtn .btn-label{display:none}
+  #mergeBtn,#openBtn{padding:8px;width:34px;justify-content:center}
+  #undoBtn{padding:8px}
+  .docbar-path{display:none}
+}
+
 </style>
 </head>
 <body>
@@ -602,7 +619,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </button>
       <button class="btn ghost" id="searchBtn" disabled title="Find text in the document (⌘/Ctrl+F)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        Search
+        <span class="btn-label">Search</span>
       </button>
       <button class="btn ghost iconly" id="checkUpdatesBtn" hidden title="Check for a newer version of Marginal">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
@@ -612,19 +629,19 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </button>
       <button class="btn" id="openBtn" title="Open a PDF (⌘/Ctrl+O)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        Open
+        <span class="btn-label">Open</span>
       </button>
       <button class="btn" id="mergeBtn" title="Merge multiple PDFs into one">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/></svg>
-        Merge
+        <span class="btn-label">Merge</span>
       </button>
       <button class="btn" id="printBtn" disabled title="Print (⌘/Ctrl+P)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Print
+        <span class="btn-label">Print</span>
       </button>
       <button class="btn" id="previewBtn" disabled title="Preview the finished PDF">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-        Preview
+        <span class="btn-label">Preview</span>
       </button>
       <div class="split">
         <button class="btn primary" id="downloadBtn" disabled title="Save (⌘/Ctrl+S)">
@@ -705,7 +722,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     <div class="tb-right">
       <button class="btn ghost" id="undoBtn" disabled title="Undo (⌘/Ctrl+Z)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
-        Undo<span class="ur-count" id="undoCount"></span>
+        <span class="btn-label">Undo</span><span class="ur-count" id="undoCount"></span>
       </button>
       <button class="btn ghost iconly" id="redoBtn" disabled title="Redo (⌘/Ctrl+Shift+Z)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3"/></svg>
@@ -1298,7 +1315,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
     $("dlSplit").onclick = () => { closeDownloadMenu(); openSplitModal(); };
     $("dlCompress").onclick = () => { closeDownloadMenu(); doCompress(); };
-    $("downloadMenuBtn").onclick = (e) => { e.stopPropagation(); toggleDownloadMenu(); };
+    $("downloadMenuBtn").onclick = (e) => { if (e && e.stopPropagation) e.stopPropagation(); toggleDownloadMenu(); };
     document.addEventListener("pointerdown", (e) => {
       const m = $("downloadMenu");
       if (!m.hidden && !$("downloadMenu").contains(e.target) && e.target !== $("downloadMenuBtn") && !$("downloadMenuBtn").contains(e.target)) closeDownloadMenu();
@@ -1313,7 +1330,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     };
     $("undoBtn").onclick = undo;
     $("redoBtn").onclick = redo;
-    $("historyBtn").onclick = (e) => { e.stopPropagation(); toggleHistory(); };
+    $("historyBtn").onclick = (e) => { if (e && e.stopPropagation) e.stopPropagation(); toggleHistory(); };
     document.addEventListener("pointerdown", (e) => {
       if (!$("historyMenu").hidden && !e.target.closest(".histwrap")) closeHistory();
     });
