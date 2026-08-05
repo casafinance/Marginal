@@ -227,7 +227,7 @@ button{font-family:inherit}
 
 /* ---------- Toolbar ---------- */
 .toolbar{
-  height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
+  height:var(--h-toolbar);min-height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
   padding:0 14px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:15;
   /* Never clip: on a narrow window the controls scroll sideways rather than becoming
@@ -532,9 +532,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   font-family:var(--font-mono);letter-spacing:.02em;pointer-events:none;user-select:none}
 
 /* Keep the bars' scrollbars unobtrusive -- they only appear when the window is too narrow */
-.toolbar::-webkit-scrollbar,.header::-webkit-scrollbar{height:5px}
-.toolbar::-webkit-scrollbar-thumb,.header::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:3px}
-.toolbar::-webkit-scrollbar-track,.header::-webkit-scrollbar-track{background:transparent}
+.toolbar::-webkit-scrollbar,.header::-webkit-scrollbar{display:none}
 /* The tool group and action group must not be squeezed to nothing before scrolling starts */
 .toolbar > *,.header > *{flex-shrink:0}
 .header .spacer{flex:1 1 auto;min-width:0}
@@ -547,6 +545,41 @@ input[type=range]{accent-color:var(--brand);width:110px}
   border:1px solid var(--stroke);background:var(--panel-soft);color:var(--text)}
 .name-input:focus{outline:none;border-color:var(--brand);background:#fff}
 .name-hint{font-size:11.5px;color:var(--text-soft);font-family:var(--font-mono);flex:none}
+
+/* ---------- Merge modal spacing ---------- */
+#mergeModal .split-body{padding:18px 22px 6px}
+#mergeModal .split-hint{margin:0 0 14px;line-height:1.5}
+#mergeModal #mergeAddBtn{margin-bottom:16px;padding:8px 14px;font-size:13px}
+.merge-list{gap:10px}
+.merge-row{padding:12px 14px;gap:14px;border-radius:11px}
+.merge-num{width:24px;font-size:12.5px;font-weight:700;color:var(--text-soft)}
+.merge-name{font-size:13.5px}
+.merge-pages{font-size:12px;opacity:.85}
+.merge-row .range-actions{gap:5px}
+.merge-row .rowbtn{width:28px;height:28px}
+.merge-empty{padding:30px 0}
+
+/* ---------- Edit history dropdown ---------- */
+.histwrap{position:relative;flex:none}
+.histmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:270px;
+  background:var(--panel);border:1px solid var(--stroke);border-radius:12px;
+  box-shadow:var(--shadow-pop);overflow:hidden;display:flex;flex-direction:column}
+.histmenu[hidden]{display:none}
+.hist-head{padding:10px 14px 8px;font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--text-soft);border-bottom:1px solid var(--stroke)}
+.hist-list{max-height:300px;overflow-y:auto;padding:5px}
+.hist-item{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border:none;
+  background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-size:12.5px;
+  color:var(--text)}
+.hist-item:hover{background:var(--panel-soft)}
+/* the dot column reads as a timeline running down the list */
+.hist-dot{width:7px;height:7px;border-radius:50%;background:var(--stroke);flex:none}
+.hist-item.future{color:var(--text-soft)}
+.hist-item.future .hist-dot{background:transparent;border:1.5px solid var(--stroke)}
+.hist-item.now{background:var(--brand-weak);color:var(--brand);font-weight:600;cursor:default}
+.hist-item.now .hist-dot{background:var(--brand)}
+.hist-when{margin-left:auto;font-size:10.5px;color:var(--text-soft);font-family:var(--font-mono);flex:none}
+.hist-empty{padding:14px;font-size:12.5px;color:var(--text-soft);text-align:center}
 
 </style>
 </head>
@@ -678,6 +711,15 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3"/></svg>
         <span class="ur-count" id="redoCount"></span>
       </button>
+      <div class="histwrap">
+        <button class="btn ghost iconly" id="historyBtn" disabled aria-haspopup="true" aria-expanded="false" title="Edit history — jump to any point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+        </button>
+        <div class="histmenu" id="historyMenu" hidden role="menu">
+          <div class="hist-head">Edit history</div>
+          <div class="hist-list" id="historyList"></div>
+        </div>
+      </div>
       <div class="divider"></div>
       <div class="pagenav" id="pageNav" title="Go to page">
         <button class="zbtn" id="pagePrev" title="Previous page">
@@ -1271,6 +1313,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
     };
     $("undoBtn").onclick = undo;
     $("redoBtn").onclick = redo;
+    $("historyBtn").onclick = (e) => { e.stopPropagation(); toggleHistory(); };
+    document.addEventListener("pointerdown", (e) => {
+      if (!$("historyMenu").hidden && !e.target.closest(".histwrap")) closeHistory();
+    });
   }
 
   async function pickFile() {
@@ -1504,7 +1550,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     }
   }
 
-  function setSelColor(a, col) { pushUndo(); a.color = col; layout(); }
+  function setSelColor(a, col) { pushUndo({ label: "Colour change" }); a.color = col; layout(); }
 
   // Controls shown while actively typing into a text mark (Add text / Edit text).
   // Changes apply straight to the in-progress mark and its live DOM node — never
@@ -1577,7 +1623,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (base === "Courier") return bold && ital ? "Courier-BoldOblique" : bold ? "Courier-Bold" : ital ? "Courier-Oblique" : "Courier";
     return bold && ital ? "Helvetica-BoldOblique" : bold ? "Helvetica-Bold" : ital ? "Helvetica-Oblique" : "Helvetica";
   }
-  function setSelFont(a, bold, ital) { pushUndo(); a.font = makeFontKey(fontParts(a.font).base, bold, ital); layout(); }
+  function setSelFont(a, bold, ital) { pushUndo({ label: "Bold / italic" }); a.font = makeFontKey(fontParts(a.font).base, bold, ital); layout(); }
 
   // Paste (duplicate) the mark copied with Ctrl/Cmd+C. Lands on the same page it was
   // copied from, nudged a bit each successive paste so copies fan out instead of stacking.
@@ -1598,7 +1644,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     markDirty();
   }
   function setSelSize(a, val) {
-    pushUndo();
+    pushUndo({ label: "Resize mark" });
     if (a.type === "text") a.size = val;
     else if (a.type === "check") { a.w = val; a.h = val; }
     else if (a.type === "sign" || a.type === "image") { const r = a.ratio || (a.w / a.h) || 1; a.w = val; a.h = val / r; }
@@ -1607,7 +1653,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
   function scaleSelected(f) {
     const a = current(); if (!a) return;
-    pushUndo();
+    pushUndo({ label: "Resize mark" });
     if (a.type === "text") a.size = Math.max(4, a.size * f);
     else if (a.w != null) { a.w = Math.max(4, a.w * f); a.h = Math.max(4, a.h * f); }
     else return;
@@ -1617,12 +1663,12 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // apply live changes from the context strip to the selected mark (if it matches)
   function applyColorToSelection(col) {
     const a = current(); if (!a || familyOf(a) !== FAMILY[S.tool]) return;
-    pushUndo(); a.color = col; layout();
+    pushUndo({ label: "Colour change" }); a.color = col; layout();
   }
   function applySizeToSelection(n) {
     const a = current(); if (!a || familyOf(a) !== FAMILY[S.tool]) return;
-    if (a.type === "text") { pushUndo(); a.size = n; layout(); }
-    else if (a.type === "check") { pushUndo(); a.w = n; a.h = n; layout(); }
+    if (a.type === "text") { pushUndo({ label: "Resize text" }); a.size = n; layout(); }
+    else if (a.type === "check") { pushUndo({ label: "Resize checkbox" }); a.w = n; a.h = n; layout(); }
   }
 
   // ============================================================
@@ -1784,7 +1830,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function rotatePage(idx, delta) {
     const rec = S.pages[idx];
     if (!rec) return;
-    pushUndo();
+    pushUndo({ label: "Rotate page" });
     const oldW = rec.wPts, oldH = rec.hPts;
     const netDelta = ((delta % 360) + 360) % 360;   // 90 or 270
     S.annots.forEach((a) => {
@@ -1816,7 +1862,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, "Inserting page…");
       await ensurePdflib();
-      pushUndo({ structural: true });   // snapshots the bytes, so Ctrl+Z can bring the page count back
+      pushUndo({ structural: true, label: "Insert blank page" });
       const { PDFDocument } = PDFLib;
       const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       const ref = S.pages[idx];
@@ -1879,7 +1925,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (h > rec.hPts * 0.8) { h = rec.hPts * 0.8; w = h * ratio; }
       const x = (rec.wPts - w) / 2;
       const y = (rec.hPts - h) / 2;
-      pushUndo();
+      pushUndo({ label: "Place image" });
       const a = { id: nid(), page: idx, type: "image", x, y, w, h, dataUrl, ratio };
       S.annots.push(a);
       layout();
@@ -1907,7 +1953,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (bitmap.close) bitmap.close();
       if (!imgW || !imgH) throw new Error("couldn't read that image's dimensions");
       await ensurePdflib();
-      pushUndo({ structural: true });   // snapshots the bytes, so Ctrl+Z can remove the added page
+      pushUndo({ structural: true, label: "Insert image page" });
       const { PDFDocument } = PDFLib;
       const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       const ref = S.pages[idx];
@@ -1950,7 +1996,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, "Deleting page…");
       await ensurePdflib();
-      pushUndo({ structural: true });   // snapshots the bytes, so Ctrl+Z can bring the page back
+      pushUndo({ structural: true, label: "Delete page" });
       const { PDFDocument } = PDFLib;
       const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       pdf.removePage(idx);
@@ -2160,7 +2206,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, "Reordering…");
       await ensurePdflib();
-      pushUndo({ structural: true });
+      pushUndo({ structural: true, label: "Reorder pages" });
       const { PDFDocument } = PDFLib;
       const src = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       const out = await PDFDocument.create();
@@ -2292,6 +2338,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("workspace").addEventListener("wheel", (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
+      e.stopPropagation();   // never let a zoom gesture also scroll the page
       const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
       zoomAt(S.zoom * factor, e.clientX, e.clientY);
     }, { passive: false });
@@ -2301,6 +2348,66 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // Keeps the undo/redo buttons and their depth badges in sync. The visible count is the
   // point: without it there's no way to tell how far back you can go, so people don't
   // trust undo and avoid experimenting.
+  // ---- edit history timeline ----
+  // Reads top-to-bottom as newest-first: anything you've undone sits above "Now" as a
+  // greyed-out future you can jump forward into, and past edits sit below it. Clicking any
+  // entry runs the right number of undos or redos to land exactly there, so you can move
+  // through the history instead of guessing how many times to press Ctrl+Z.
+  function closeHistory() {
+    const m = $("historyMenu");
+    if (m) { m.hidden = true; $("historyBtn").setAttribute("aria-expanded", "false"); }
+  }
+
+  function renderHistory() {
+    const list = $("historyList");
+    list.innerHTML = "";
+    const rows = [];
+    // future (things undone), newest-first from the top
+    S.redo.forEach((e, i) => rows.push({ label: e.label, cls: "future", steps: S.redo.length - i, dir: "redo" }));
+    rows.push({ label: "Now", cls: "now", steps: 0 });
+    // past, most recent first
+    for (let i = S.undo.length - 1; i >= 0; i--) {
+      rows.push({ label: S.undo[i].label, cls: "", steps: S.undo.length - i, dir: "undo" });
+    }
+    if (S.undo.length === 0 && S.redo.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "hist-empty";
+      empty.textContent = "No edits yet.";
+      list.appendChild(empty);
+      return;
+    }
+    rows.forEach((r) => {
+      const b = document.createElement("button");
+      b.className = "hist-item " + r.cls;
+      b.setAttribute("role", "menuitem");
+      const dot = document.createElement("span"); dot.className = "hist-dot";
+      const txt = document.createElement("span"); txt.textContent = r.label;
+      b.append(dot, txt);
+      if (r.steps > 0) {
+        const when = document.createElement("span");
+        when.className = "hist-when";
+        when.textContent = (r.dir === "undo" ? "-" : "+") + r.steps;
+        b.appendChild(when);
+        b.onclick = async () => {
+          closeHistory();
+          for (let k = 0; k < r.steps; k++) {
+            if (r.dir === "undo") { if (!S.undo.length) break; await undo(); }
+            else { if (!S.redo.length) break; await redo(); }
+          }
+        };
+      } else {
+        b.disabled = true;
+      }
+      list.appendChild(b);
+    });
+  }
+
+  function toggleHistory() {
+    const m = $("historyMenu");
+    if (m.hidden) { renderHistory(); m.hidden = false; $("historyBtn").setAttribute("aria-expanded", "true"); }
+    else closeHistory();
+  }
+
   function updateUndoRedoUI() {
     const un = S.undo ? S.undo.length : 0;
     const rn = S.redo ? S.redo.length : 0;
@@ -2308,6 +2415,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("redoBtn").disabled = rn === 0;
     $("undoCount").textContent = un ? String(un) : "";
     $("redoCount").textContent = rn ? String(rn) : "";
+    const hb = $("historyBtn");
+    if (hb) hb.disabled = (un + rn) === 0;
+    if (!$("historyMenu").hidden) renderHistory();   // keep an open panel current
     $("undoBtn").title = un ? "Undo " + un + " step" + (un > 1 ? "s" : "") + " (\u2318/Ctrl+Z)" : "Nothing to undo";
     $("redoBtn").title = rn ? "Redo " + rn + " step" + (rn > 1 ? "s" : "") + " (\u2318/Ctrl+Shift+Z)" : "Nothing to redo";
   }
@@ -2327,8 +2437,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("zoomVal").textContent = Math.round(z * 100) + "%";
     S.pages.forEach(sizePage);
     layout();
+    // The workspace scrolls smoothly by default, which would animate this correction and
+    // read as the page sliding around rather than zooming into the pointer. Anchoring has
+    // to be instant.
+    const prevBehaviour = ws.style.scrollBehavior;
+    ws.style.scrollBehavior = "auto";
     ws.scrollLeft = px * ratio - (cx == null ? rect.width / 2 : cx - rect.left);
     ws.scrollTop = py * ratio - (cy == null ? rect.height / 2 : cy - rect.top);
+    ws.style.scrollBehavior = prevBehaviour || "";
     clearTimeout(zoomAt._t);
     zoomAt._t = setTimeout(rerenderVisible, 120);
   }
@@ -2466,7 +2582,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const font = detectFontKey(span);
     const bg = sampleBg(rec, x, y, w, h);
     const color = sampleInk(rec, x, y, w, h);
-    pushUndo();
+    pushUndo({ label: "Edit document text" });
     // "cover" (not "whiteout"): this hides the words underneath without rasterising the
     // whole page. Using whiteout here meant editing one field flattened every bit of text
     // on that page into an image, destroying search and selection across the document.
@@ -2545,7 +2661,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ---- checkbox ----
   function createCheck(idx, pt) {
     const s = S.size.check;
-    pushUndo();
+    pushUndo({ label: "Add checkbox" });
     const a = { id: nid(), page: idx, type: "check", x: pt.x - s / 2, y: pt.y - s / 2, w: s, h: s, checked: false, color: S.color.check };
     S.annots.push(a);
     // drop it blank and selected so you can size/move/tick it; pick the tool again to add another
@@ -2557,7 +2673,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // ---- text ----
   function createText(idx, pt) {
-    pushUndo();
+    pushUndo({ label: "Add text" });
     const a = { id: nid(), page: idx, type: "text", x: pt.x, y: pt.y, text: "", size: S.size.text, color: S.color.text };
     S.annots.push(a);
     layout();
@@ -2605,7 +2721,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // ---- freehand draw ----
   function startDraw(rec, idx, e, pt) {
-    pushUndo();
+    pushUndo({ label: "Draw" });
     const a = { id: nid(), page: idx, type: "draw", color: S.color.draw, size: S.size.draw, pts: [pt] };
     S.annots.push(a);
     const ov = rec.overlay; ov.setPointerCapture(e.pointerId);
@@ -2768,7 +2884,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     el.setPointerCapture(e.pointerId);
     const move = (ev) => {
       const dx = (ev.clientX - startX) / S.zoom, dy = (ev.clientY - startY) / S.zoom;
-      if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 3) { moved = true; pushUndo(); }
+      if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 3) { moved = true; pushUndo({ label: "Move mark" }); }
       if (!moved) return;
       applyGeomDelta(a, o, dx, dy);
       positionEl(el, a);
@@ -2778,7 +2894,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       if (moved) { markDirty(); decorateSelected(el, a); }
-      else if (a.type === "check") { pushUndo(); a.checked = !a.checked; layout(); select(a.id); markDirty(); }
+      else if (a.type === "check") { pushUndo({ label: "Toggle checkbox" }); a.checked = !a.checked; layout(); select(a.id); markDirty(); }
     };
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
@@ -2923,7 +3039,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function removeAnnot(id, silent) {
-    if (!silent) pushUndo();
+    if (!silent) pushUndo({ label: "Delete mark" });
     S.annots = S.annots.filter((a) => a.id !== id);
     if (S.sel === id) S.sel = null;
     layout();
@@ -2945,10 +3061,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
     return JSON.stringify(entry);
   }
 
+  // Each entry carries a human-readable label as well as the snapshot, so the history
+  // panel can show what each step actually was rather than just a count.
   function pushUndo(opts) {
-    S.undo.push(captureState(!!(opts && opts.structural)));
+    opts = opts || {};
+    S.undo.push({ state: captureState(!!opts.structural), label: opts.label || "Edit" });
     if (S.undo.length > 60) S.undo.shift();
     S.redo = [];   // a fresh action invalidates whatever could have been redone — standard undo/redo behavior
+    closeHistory();
     updateUndoRedoUI();
   }
 
@@ -2985,10 +3105,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       busy(true);
       // If what we're about to restore was a structural snapshot, the state we're
       // *leaving* also needs its bytes captured — otherwise redo couldn't bring it back.
-      const undoingStructural = JSON.parse(S.undo[S.undo.length - 1]).bytes != null;
-      S.redo.push(captureState(undoingStructural));
+      const top = S.undo[S.undo.length - 1];
+      const undoingStructural = JSON.parse(top.state).bytes != null;
+      S.redo.push({ state: captureState(undoingStructural), label: top.label });
       if (S.redo.length > 60) S.redo.shift();
-      await applySnapshot(S.undo.pop());
+      await applySnapshot(S.undo.pop().state);
     } catch (e) {
       console.error("Undo failed:", e);
       toast("Couldn't undo that.");
@@ -3002,10 +3123,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (!S.redo.length) return;
     try {
       busy(true);
-      const redoingStructural = JSON.parse(S.redo[S.redo.length - 1]).bytes != null;
-      S.undo.push(captureState(redoingStructural));
+      const topR = S.redo[S.redo.length - 1];
+      const redoingStructural = JSON.parse(topR.state).bytes != null;
+      S.undo.push({ state: captureState(redoingStructural), label: topR.label });
       if (S.undo.length > 60) S.undo.shift();
-      await applySnapshot(S.redo.pop());
+      await applySnapshot(S.redo.pop().state);
     } catch (e) {
       console.error("Redo failed:", e);
       toast("Couldn't redo that.");
@@ -4299,7 +4421,24 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("mergeBtn").onclick = openMergeModal;
     $("mergeClose").onclick = closeMergeModal;
     $("mergeCancel").onclick = closeMergeModal;
-    $("mergeAddBtn").onclick = () => $("mergeFileInput").click();
+    // Use the native picker on the desktop: the webview's own <input multiple> only ever
+    // returned a single file, which is why adding several at once didn't work.
+    $("mergeAddBtn").onclick = async () => {
+      const T = window.__TAURI__;
+      if (!T) { $("mergeFileInput").click(); return; }
+      try {
+        const results = await T.core.invoke("open_files_dialog");
+        if (!results || !results.length) return;
+        for (const r of results) {
+          if (!/\.pdf$/i.test(r.name)) continue;
+          mergeFiles.push({ name: r.name, bytes: _bytesOfB64(r.b64) });
+        }
+        renderMergeList();
+      } catch (e) {
+        console.error(e);
+        toast("Couldn't add those files.");
+      }
+    };
     $("mergeFileInput").onchange = (e) => { addMergeFiles(e.target.files); e.target.value = ""; };
     $("mergeGo").onclick = doMerge;
     $("mergeOutName").addEventListener("input", () => { $("mergeOutName").dataset.touched = "1"; });
