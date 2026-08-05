@@ -1,6 +1,6 @@
 {
   "name": "marginal",
-  "version": "1.10.2",
+  "version": "1.11.0",
   "private": true,
   "description": "Marginal — a fast, local PDF viewer and editor.",
   "scripts": {
