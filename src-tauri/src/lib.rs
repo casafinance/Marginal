@@ -98,8 +98,11 @@ fn read_openable_file(path: &str) -> Option<serde_json::Value> {
 
 /// Frontend calls this once on startup to get the file we were opened with (if any).
 #[tauri::command]
-fn take_opened_pdf(state: tauri::State<OpenedFile>) -> Option<serde_json::Value> {
-    let path = state.0.lock().ok()?.take()?;
+async fn take_opened_pdf(state: tauri::State<'_, OpenedFile>) -> Option<serde_json::Value> {
+    // Async on purpose: for a .docx this runs the Word conversion, which waits on
+    // PowerShell for up to 45s. On the main thread that would freeze the window at
+    // startup, exactly when the person is waiting to see their document.
+    let path = { state.0.lock().ok()?.take()? };
     read_openable_file(&path)
 }
 
@@ -161,7 +164,7 @@ fn open_default_apps_settings() -> Result<(), String> {
 /// Returns the chosen path if saved (so the frontend can remember it for a future true
 /// Save), or None if the person cancelled the dialog — not an error.
 #[tauri::command]
-fn save_file_as(
+async fn save_file_as(
     app: tauri::AppHandle,
     window: tauri::Window,
     default_name: String,
@@ -196,7 +199,7 @@ fn save_file_as(
 /// with a path this session already produced (via save_file_as or the native Open
 /// dialog), so this doesn't need its own picker or validation beyond the write itself.
 #[tauri::command]
-fn write_to_path(path: String, b64: String) -> Result<(), String> {
+async fn write_to_path(path: String, b64: String) -> Result<(), String> {
     let bytes = b64_decode(&b64)?;
     std::fs::write(&path, &bytes).map_err(|e| e.to_string())
 }
@@ -206,7 +209,7 @@ fn write_to_path(path: String, b64: String) -> Result<(), String> {
 /// which the plain HTML file input can never provide (browsers never expose a real path,
 /// for the same security reasons in every browser, Tauri's webview included).
 #[tauri::command]
-fn open_files_dialog(
+async fn open_files_dialog(
     app: tauri::AppHandle,
     window: tauri::Window,
 ) -> Result<Vec<serde_json::Value>, String> {
@@ -351,7 +354,7 @@ fn convert_docx_bytes(stem: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
-fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, String> {
+async fn convert_docx_to_pdf(name: String, b64: String) -> Result<serde_json::Value, String> {
     let bytes = b64_decode(&b64)?;
     let stem = std::path::Path::new(&name)
         .file_stem()
