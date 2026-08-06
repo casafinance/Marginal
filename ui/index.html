@@ -226,8 +226,14 @@ button{font-family:inherit}
 
 /* ---------- Toolbar ---------- */
 .toolbar{
-  height:var(--h-toolbar);min-height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
-  padding:0 14px;background:var(--panel);border-bottom:1px solid var(--stroke);
+  /* Reflows onto a second row rather than running off the edge. It can't be a scroll
+     container (that clips the history/Save popups that live inside it), and a fixed
+     single row silently hid whatever didn't fit -- so it wraps instead, growing only when
+     it actually needs to. Groups are flex:none + nowrap, so a wrap only ever happens
+     BETWEEN groups, never through the middle of one. */
+  min-height:var(--h-toolbar);flex:none;display:flex;align-items:center;
+  flex-wrap:wrap;column-gap:14px;row-gap:4px;
+  padding:4px 14px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:15;
 }
 .toolgroup{display:flex;align-items:center;gap:4px;
@@ -624,6 +630,39 @@ input[type=range]{accent-color:var(--brand);width:110px}
   background:var(--panel-soft);border-radius:4px;padding:1px 4px;margin-left:auto;flex:none}
 .hist-item .hist-when{margin-left:6px}
 
+/* Shed width before the toolbar is forced to wrap: tool labels go icon-only first. */
+@media (max-width:1280px){
+  .tool{width:44px;font-size:0;padding-left:0;padding-right:0;justify-content:center}
+  .tool svg{width:19px;height:19px}
+  .tool .chip{top:5px;right:5px}
+}
+
+/* Every toolbar group is atomic: it holds its size and wraps as a whole unit rather than
+   being compressed or broken apart. */
+/* Descendant, not direct-child: these groups sit inside a .tb-right wrapper. */
+.toolbar .pagenav,.toolbar .zoom,.toolbar .ctl,.toolbar .histwrap,
+.toolbar .divider,.toolbar .tool,.toolbar .btn{flex:none}
+/* The right-hand cluster wraps as a group too, rather than being squeezed. */
+.toolbar .tb-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;row-gap:4px;flex:none}
+
+/* ---------- Split: named parts ----------
+   Each part gets a real name so the output files are identifiable rather than
+   "part 1 / part 2". Ends are never stored - they're derived from the next part's start -
+   which is what makes gaps, overlaps, and pages owned by two documents impossible. */
+.parts-head{display:flex;align-items:center;justify-content:space-between;
+  margin:16px 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--text-soft)}
+.parts-list{display:flex;flex-direction:column;gap:6px;max-height:26vh;overflow-y:auto;padding-right:2px}
+.part-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:9px;
+  background:var(--panel-soft);border:1px solid var(--stroke);border-left:4px solid var(--grp)}
+.part-name{flex:1;min-width:0;font-size:13px;padding:5px 8px;border-radius:6px;
+  border:1px solid transparent;background:transparent;color:var(--text);font-weight:600}
+.part-name:hover{border-color:var(--stroke)}
+.part-name:focus{outline:none;border-color:var(--brand);background:#fff}
+.part-range{font-size:11.5px;color:var(--text-soft);font-family:var(--font-mono);
+  white-space:nowrap;flex:none}
+.part-count{font-size:11px;color:var(--text-soft);white-space:nowrap;flex:none;min-width:58px;text-align:right}
+
 </style>
 </head>
 <body>
@@ -721,7 +760,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6V5h16v1M12 5v14m-3 0h6"/></svg>
         Add text
       </button>
-      <button class="tool" data-tool="edittext" title="Click text in the document to edit it (E)">
+      <button class="tool" data-tool="edittext" title="Edit existing text (E)">
         <span class="chip" id="chipEdit"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
         Edit text
@@ -971,7 +1010,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
       <div class="split-or"><span>or split into multiple files</span></div>
 
-      <p class="split-hint">Click the scissors between any two pages to cut there. Each colour becomes its own PDF.</p>
+      <p class="split-hint">Click the scissors between any two pages to cut there. Each colour becomes its own PDF — name them below.</p>
       <div class="split-presets">
         <span class="lbl">Quick:</span>
         <span class="preset-grp">every <input id="splitEveryN" class="mini-input" inputmode="numeric" value="1"> pages <button class="btn ghost sm" id="splitEveryApply">Apply</button></span>
@@ -979,6 +1018,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <button class="btn ghost sm" id="splitClear">Reset to 1 file</button>
       </div>
       <div class="split-pages" id="splitPages"></div>
+      <div class="parts-head">
+        <span>Parts</span>
+        <button class="btn ghost sm" id="splitBundlePreset" title="Carve the trailing documents by their known lengths, counting back from the last page">Mortgage bundle</button>
+      </div>
+      <div class="parts-list" id="splitParts"></div>
     </div>
     <div class="name-row">
       <label class="lbl" for="splitBaseName">Name the parts</label>
@@ -1205,6 +1249,17 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // single-element list purely so the per-document page and thumbnail caching below
   // keeps working unchanged.
   function newTab() {
+    // Tear the outgoing document down properly. It used to only get hidden, so every time
+    // a document was replaced in this window its page and thumbnail containers stayed in
+    // the DOM forever - a leak that also made page counts read high.
+    const prev = docs[0];
+    if (prev) {
+      if (prev.io) { try { prev.io.disconnect(); } catch (_) {} }
+      if (prev.thumbIo) { try { prev.thumbIo.disconnect(); } catch (_) {} }
+      if (prev.pdf) { try { prev.pdf.destroy(); } catch (_) {} }
+      if (prev.pagesHost) prev.pagesHost.remove();
+      if (prev.thumbsHost) prev.thumbsHost.remove();
+    }
     const doc = makeDocState();
     docs.length = 0;
     docs.push(doc);
@@ -4413,6 +4468,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function openSplitModal() {
     // Prefill from the document being split so the common case needs no typing.
     $("splitBaseName").value = S.fileName.replace(/\.pdf$/i, "");
+    splitNames = {};
     if (!S.pages.length) return;
     splitCuts = new Set();
     $("extractInput").value = "";
@@ -4422,7 +4478,79 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
   function closeSplitModal() { $("splitModal").hidden = true; }
 
-  function renderSplit() { renderSplitPages(); renderSplitSummary(); }
+  let splitNames = {};   // start page -> name the person typed
+
+  function renderSplit() { renderSplitPages(); renderSplitParts(); renderSplitSummary(); }
+
+  function partName(groups, k) {
+    const start = groups[k][0];
+    return splitNames[start] || ("Part " + (k + 1));
+  }
+
+  // One row per part: name, derived page range, page count. Ends are always derived from
+  // the following part's start, never stored, so a gap or an overlap can't be represented.
+  function renderSplitParts() {
+    const host = $("splitParts");
+    if (!host) return;
+    host.innerHTML = "";
+    const groups = splitGroups();
+    groups.forEach((g, k) => {
+      const row = document.createElement("div");
+      row.className = "part-row";
+      row.style.setProperty("--grp", SPLIT_COLORS[k % SPLIT_COLORS.length]);
+      const name = document.createElement("input");
+      name.className = "part-name";
+      name.value = partName(groups, k);
+      name.spellcheck = false;
+      name.setAttribute("aria-label", "Name for part " + (k + 1));
+      name.addEventListener("input", () => {
+        const v = name.value.trim();
+        if (v) splitNames[g[0]] = v; else delete splitNames[g[0]];
+        renderSplitSummary();
+      });
+      const range = document.createElement("span");
+      range.className = "part-range";
+      range.textContent = g[0] === g[1] ? ("p" + (g[0] + 1)) : ("p" + (g[0] + 1) + "\u2013" + (g[1] + 1));
+      const count = document.createElement("span");
+      count.className = "part-count";
+      const n = g[1] - g[0] + 1;
+      count.textContent = n + (n === 1 ? " page" : " pages");
+      row.append(name, range, count);
+      host.appendChild(row);
+    });
+  }
+
+  // Carves only the documents whose lengths are genuinely fixed, counting back from the
+  // last page: UCC (3), Guaranty (12), ABS (6), Allonge (2). Deliberately stops there --
+  // the Note, security instrument and Title Commitment can't be derived from the end
+  // because the Title Commitment's length genuinely varies, so those are left for you to
+  // place rather than guessed at.
+  function applyBundlePreset() {
+    const total = S.pages.length;
+    const trailing = [
+      { name: "UCC", len: 3 },
+      { name: "Guaranty", len: 12 },
+      { name: "ABS", len: 6 },
+      { name: "Allonge", len: 2 },
+    ];
+    const needed = trailing.reduce((a, d) => a + d.len, 0);
+    if (total < needed + 2) {
+      toast("This document is too short for a mortgage bundle (needs at least " + (needed + 2) + " pages).");
+      return;
+    }
+    splitCuts = new Set();
+    splitNames = {};
+    let end = total - 1;                       // 0-indexed last page
+    for (const doc of trailing) {
+      const start = end - doc.len + 1;
+      splitCuts.add(start - 1);                // a cut sits after the page before this one
+      splitNames[start] = doc.name;
+      end = start - 1;
+    }
+    splitNames[0] = "Note + Mortgage + TC";
+    renderSplit();
+    toast("Trailing documents carved by length. Add cuts for the Note, Mortgage and TC \u2014 those can't be derived from the end.");
+  }
 
   // The list scales with the number of PARTS you want, not the number of pages — so it
   // stays a short, glanceable list whether the document is 5 pages or 5,000.
@@ -4568,7 +4696,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
         copied.forEach((pg) => out.addPage(pg));
         const partBytes = await out.save({ useObjectStreams: false });
         const label = a === b ? "p" + (a + 1) : "p" + (a + 1) + "-" + (b + 1);
-        files.push({ name: base + " part " + (k + 1) + " (" + label + ").pdf", data: partBytes });
+        const pname = partName(groups, k);
+        files.push({ name: base + " - " + pname.replace(/[\\/:*?"<>|]/g, "-") + " (" + label + ").pdf", data: partBytes });
       }
       const zip = zipStore(files);
       const zipName = base + " (split into " + groups.length + ").zip";
@@ -4729,6 +4858,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("splitEqualApply").onclick = applyEqualN;
     $("splitClear").onclick = () => { splitCuts = new Set(); renderSplit(); };
     $("splitBaseName").addEventListener("input", renderSplitSummary);
+    $("splitBundlePreset").onclick = applyBundlePreset;
     $("extractInput").addEventListener("input", updateExtractStatus);
     $("extractInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("extractGo").disabled) { e.preventDefault(); doExtract(); } });
     $("extractGo").onclick = doExtract;
