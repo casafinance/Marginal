@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -163,6 +163,7 @@ fn open_default_apps_settings() -> Result<(), String> {
 #[tauri::command]
 fn save_file_as(
     app: tauri::AppHandle,
+    window: tauri::Window,
     default_name: String,
     filter_name: String,
     filter_ext: String,
@@ -170,12 +171,17 @@ fn save_file_as(
 ) -> Result<Option<String>, String> {
     let bytes = b64_decode(&b64)?;
     let exts: Vec<&str> = filter_ext.split(',').map(|s| s.trim()).collect();
-    let picked = app
+    let mut builder = app
         .dialog()
         .file()
         .set_file_name(&default_name)
-        .add_filter(&filter_name, &exts)
-        .blocking_save_file();
+        .add_filter(&filter_name, &exts);
+    // Centre the dialog over Marginal rather than letting Windows place it wherever.
+    #[cfg(any(windows, target_os = "macos"))]
+    {
+        builder = builder.set_parent(&window);
+    }
+    let picked = builder.blocking_save_file();
     match picked {
         Some(file_path) => {
             let path = file_path.into_path().map_err(|e| e.to_string())?;
@@ -200,12 +206,19 @@ fn write_to_path(path: String, b64: String) -> Result<(), String> {
 /// which the plain HTML file input can never provide (browsers never expose a real path,
 /// for the same security reasons in every browser, Tauri's webview included).
 #[tauri::command]
-fn open_files_dialog(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
-    let picked = app
+fn open_files_dialog(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut builder = app
         .dialog()
         .file()
-        .add_filter("PDF and Word Documents", &["pdf", "docx"])
-        .blocking_pick_files();
+        .add_filter("PDF and Word Documents", &["pdf", "docx"]);
+    #[cfg(any(windows, target_os = "macos"))]
+    {
+        builder = builder.set_parent(&window);
+    }
+    let picked = builder.blocking_pick_files();
     let mut out = Vec::new();
     if let Some(paths) = picked {
         for file_path in paths {
