@@ -62,26 +62,33 @@ button{font-family:inherit}
 }
 .brand .mark .dot{color:var(--brand)}
 .brand .tag{font-size:11px;color:var(--text-soft);letter-spacing:.02em}
-.tabstrip{display:flex;align-items:stretch;gap:4px;padding:0 12px;background:var(--panel);
-  border-bottom:1px solid var(--stroke);min-height:38px}
-.tabstrip[hidden]{display:none}
-.tabbar{display:flex;align-items:stretch;gap:3px;min-width:0;flex:1;overflow-x:auto;scrollbar-width:thin}
-.tabbar[hidden]{display:none}
-.tabnew{align-self:center;width:28px;height:28px;flex:none;border:none;background:transparent;
-  border-radius:7px;color:var(--text-soft);cursor:pointer;display:grid;place-items:center}
-.tabnew:hover{background:var(--panel-soft);color:var(--text)}
-.tabnew svg{width:16px;height:16px}
-.tab{display:flex;align-items:center;gap:6px;padding:0 6px 0 11px;margin-top:5px;
-  border-radius:8px 8px 0 0;background:transparent;color:var(--text-soft);cursor:pointer;
-  max-width:230px;flex:none;border-bottom:2px solid transparent;white-space:nowrap}
-.tab:hover{background:var(--panel-soft)}
-.tab[aria-current="true"]{background:var(--panel-soft);color:var(--text);border-bottom-color:var(--brand)}
-.tab .tab-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;max-width:160px}
-.tab .tab-name.dirty::after{content:"•";color:var(--brand);margin-left:5px;font-weight:800}
-.tab .tab-x{width:19px;height:19px;border-radius:5px;border:none;background:transparent;
-  color:var(--text-soft);display:grid;place-items:center;flex:none;cursor:pointer}
-.tab .tab-x:hover{background:var(--stroke);color:var(--text)}
-.tab .tab-x svg{width:12px;height:12px}
+/* ---------- Document bar (one document per window) ---------- */
+.docbar{display:flex;align-items:center;gap:10px;padding:0 14px;min-height:34px;
+  background:var(--panel);border-bottom:1px solid var(--stroke);font-size:12.5px}
+.docbar[hidden]{display:none}
+.docbar .spacer{flex:1}
+.docbar-name{font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:38vw;flex:none}
+.docbar-name.dirty::after{content:"\2022";color:var(--brand);margin-left:6px;font-weight:800}
+/* Showing the real save target matters: without it you can overwrite a template
+   without realising which file you're writing to. */
+.docbar-path{color:var(--text-soft);font-size:11.5px;white-space:nowrap;overflow:hidden;
+  direction:rtl;text-align:left;min-width:0;flex:1;font-family:var(--font-mono)}
+.docbar-path.unsaved{color:var(--brand);font-family:inherit;font-style:italic}
+.docbar-new{display:flex;align-items:center;gap:6px;flex:none;border:none;background:transparent;
+  color:var(--text-soft);font-size:12px;cursor:pointer;border-radius:6px;padding:4px 8px}
+.docbar-new:hover{background:var(--panel-soft);color:var(--text)}
+.docbar-new svg{width:14px;height:14px}
+
+/* ---------- Unsaved-changes prompt ---------- */
+.unsaved-sheet{width:min(440px,94vw)}
+.unsaved-body{padding:4px 22px 18px;font-size:13.5px;color:var(--text);line-height:1.5}
+.unsaved-where{margin-top:8px;font-size:12px;color:var(--text-soft);font-family:var(--font-mono);
+  word-break:break-all}
+.sheet-foot .spacer{flex:1}
+.btn.danger{color:var(--danger)}
+.btn.danger:hover{background:#fdecec;border-color:var(--danger)}
+
 .header .spacer{flex:1}
 .header .actions{display:flex;gap:8px;align-items:center}
 .btn{white-space:nowrap}
@@ -137,6 +144,32 @@ button{font-family:inherit}
 .btn.sm{padding:5px 10px;font-size:12px}
 .split-grid{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;user-select:none}
 .range-list{display:flex;flex-direction:column;gap:8px;max-height:40vh;overflow:auto;padding-right:2px}
+
+/* ---------- Visual split picker ---------- */
+.split-pages{display:flex;flex-wrap:wrap;align-items:flex-start;gap:0;
+  max-height:44vh;overflow-y:auto;padding:14px 4px 18px;
+  border:1px solid var(--stroke);border-radius:10px;background:var(--panel-soft)}
+.sp-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:7px 5px 5px;border-radius:7px;background:#fff;
+  border-top:3px solid var(--grp);box-shadow:0 1px 3px rgba(20,25,45,.14)}
+.sp-canvas{display:block;background:#fff;border-radius:2px}
+.sp-num{font-size:10.5px;color:var(--text-soft);font-family:var(--font-mono);line-height:1}
+.sp-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+  font-size:9.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap;
+  background:var(--grp);color:#fff;border-radius:4px;padding:1px 5px;z-index:1}
+/* the clickable gap between two pages — subtle until you hover, obvious once cut */
+.sp-gap{align-self:stretch;width:26px;flex:none;margin:0;border:none;background:transparent;
+  display:grid;place-items:center;cursor:pointer;border-radius:6px;color:transparent;
+  position:relative}
+.sp-gap::before{content:"";position:absolute;top:10px;bottom:10px;width:2px;
+  background:var(--stroke);border-radius:2px}
+.sp-gap:hover{color:var(--brand)}
+.sp-gap:hover::before{background:var(--brand-weak)}
+.sp-gap svg{width:14px;height:14px;position:relative;z-index:1}
+.sp-gap.cut{color:var(--brand)}
+.sp-gap.cut::before{background:var(--brand);width:3px;top:4px;bottom:4px}
+.sp-gap.cut:hover{color:var(--danger,#e5484d)}
+.sp-gap.cut:hover::before{background:var(--danger,#e5484d)}
 .range-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
   background:var(--panel-soft);border:1px solid var(--stroke);border-left:4px solid var(--grp,#4a3ad9)}
 .range-row .dot{display:none}
@@ -193,7 +226,7 @@ button{font-family:inherit}
 
 /* ---------- Toolbar ---------- */
 .toolbar{
-  height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
+  height:var(--h-toolbar);min-height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:14px;
   padding:0 14px;background:var(--panel);border-bottom:1px solid var(--stroke);
   z-index:15;
 }
@@ -214,10 +247,14 @@ button{font-family:inherit}
   border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(20,25,45,.15)}
 
 /* context strip (color + size), shown per tool */
-.context{display:flex;align-items:center;gap:12px;min-height:40px;flex:1}
+.context{display:flex;align-items:center;gap:12px;min-height:40px;flex:1;min-width:0}
 .context.hidden{display:none}
-.ctl{display:flex;align-items:center;gap:8px}
-.ctl .lbl{font-size:11px;color:var(--text-soft);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+/* Nothing in here may wrap or shrink: these are single-line controls, and letting them
+   shrink made labels wrap one character per line and spill out of the toolbar. */
+.context > *{flex:none}
+.ctl{display:flex;align-items:center;gap:8px;flex:none}
+.ctl .lbl{font-size:11px;color:var(--text-soft);font-weight:600;text-transform:uppercase;
+  letter-spacing:.05em;white-space:nowrap;flex:none}
 .swatches{display:flex;gap:6px}
 .swatch{width:22px;height:22px;border-radius:6px;cursor:pointer;border:2px solid #fff;
   box-shadow:0 0 0 1px var(--stroke-strong);transition:transform .08s}
@@ -281,8 +318,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
   background:#fff;border-radius:2px}
 .thumbCard .thumbLabel{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-soft)}
 .thumbCard.current .thumbLabel{color:var(--text);font-weight:600}
+.thumbCard{touch-action:none}   /* let pointer-drag reordering work without the webview panning */
 .thumbCard.dragging{opacity:.4}
-.thumbCard.dragOver{border-color:var(--brand);background:var(--panel-soft)}
+/* a clear insertion marker on the card the page will move to */
+.thumbCard.dragOver{border-color:var(--brand);background:var(--brand-weak);
+  box-shadow:0 0 0 2px var(--brand) inset}
 .thumbMoveBtns{display:flex;gap:2px}
 .thumbMoveBtns button{width:16px;height:16px;border:none;background:transparent;color:var(--text-soft);
   border-radius:4px;display:grid;place-items:center;cursor:pointer}
@@ -304,7 +344,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .page .textLayer span.markedContent{top:0;height:0}
 .page .textLayer ::selection{background:rgba(74,58,217,.32)}
 .page .overlay{position:absolute;inset:0;border-radius:6px;z-index:2;pointer-events:none}
-.page .pnum{position:absolute;left:50%;transform:translateX(-50%);bottom:-19px;
+/* Sits above each page, so it scrolls into view as you reach the page (it used to be at
+   the bottom, which meant it was only visible once you'd already scrolled past). */
+.page .pnum{position:absolute;left:0;top:-19px;
   font-size:11px;color:var(--text-soft);font-family:var(--font-mono);pointer-events:none}
 @keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
@@ -332,7 +374,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .an.text[contenteditable="true"]{outline:2px solid var(--brand);background:rgba(74,58,217,.05);
   min-width:8px;cursor:text;pointer-events:auto}
 /* dashed outline is an on-screen guide only — export draws just the fill */
-.an.whiteout{border-radius:1px;border:1px dashed #7b8397}
+.an.whiteout,.an.cover{border-radius:1px;border:1px dashed #7b8397}
 .an.highlight{mix-blend-mode:multiply;border-radius:1px}
 /* draw is an <svg> that is itself the mark; only its transparent hit path is
    clickable, and only in Select mode */
@@ -388,8 +430,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
 /* ---------- Signature ---------- */
 .an.check{box-sizing:border-box;border-radius:2px;background:transparent}
 .an.check svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.an.sign{background:transparent}
-.an.sign img{width:100%;height:100%;display:block;pointer-events:none;user-select:none}
+.an.sign,.an.image{background:transparent}
+.an.sign img,.an.image img{width:100%;height:100%;display:block;pointer-events:none;user-select:none}
+/* Visible confirmation that an edge/centre snap took hold, so it's clear the alignment
+   was deliberate rather than just close enough by eye. */
+.an.image.snapped{outline:2px solid var(--brand);outline-offset:0}
 .workspace.tool-signplace .overlay{cursor:copy;pointer-events:auto}
 
 .modal{position:fixed;inset:0;background:rgba(22,27,40,.5);backdrop-filter:blur(3px);
@@ -465,7 +510,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   .tool{width:48px;font-size:0}
   .tool svg{width:20px;height:20px}
   .brand .tag{display:none}
-  .tab .tab-name{max-width:90px}
+  .docbar-name{max-width:30vw}
   .context{gap:8px}
   input[type=range]{width:78px}
 }
@@ -474,6 +519,110 @@ input[type=range]{accent-color:var(--brand);width:110px}
   *{animation:none !important;transition:none !important;scroll-behavior:auto !important}
 }
 
+
+/* Undo / Redo / History read as one group: a labelled Undo, then two icon buttons.
+   Depth used to sit in badges on the buttons, but that crowded them (and squeezed the redo
+   icon out of its fixed-width box) - it belongs in the tooltip and the history panel. */
+.histwrap{position:relative;flex:none;margin-left:-4px}
+#redoBtn{margin-left:-4px}
+/* Page number that stays visible while scrolling, instead of only the small toolbar box */
+.page-label{position:absolute;top:-19px;left:0;font-size:11px;color:var(--text-soft);
+  font-family:var(--font-mono);letter-spacing:.02em;pointer-events:none;user-select:none}
+
+/* Keep the bars' scrollbars unobtrusive -- they only appear when the window is too narrow */
+/* The tool group and action group must not be squeezed to nothing before scrolling starts */
+.toolbar > *,.header > *{flex-shrink:0}
+.header .spacer{flex:1 1 auto;min-width:0}
+
+/* Editable output name for split/merge, prefilled from the source so the common case
+   needs no typing at all. */
+.name-row{display:flex;align-items:center;gap:10px;padding:10px 22px 0}
+.name-row .lbl{font-size:12px;color:var(--text-soft);flex:none}
+.name-input{flex:1;min-width:0;font-size:13px;padding:6px 9px;border-radius:7px;
+  border:1px solid var(--stroke);background:var(--panel-soft);color:var(--text)}
+.name-input:focus{outline:none;border-color:var(--brand);background:#fff}
+.name-hint{font-size:11.5px;color:var(--text-soft);font-family:var(--font-mono);flex:none}
+
+/* ---------- Merge modal spacing ---------- */
+#mergeModal .split-body{padding:18px 22px 6px}
+#mergeModal .split-hint{margin:0 0 14px;line-height:1.5}
+#mergeModal #mergeAddBtn{margin-bottom:16px;padding:8px 14px;font-size:13px}
+.merge-list{gap:10px}
+.merge-row{padding:12px 14px;gap:14px;border-radius:11px}
+.merge-num{width:24px;font-size:12.5px;font-weight:700;color:var(--text-soft)}
+.merge-name{font-size:13.5px}
+.merge-pages{font-size:12px;opacity:.85}
+.merge-row .range-actions{gap:5px}
+.merge-row .rowbtn{width:28px;height:28px}
+.merge-empty{padding:30px 0}
+
+/* ---------- Edit history dropdown ---------- */
+.histmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:270px;
+  background:var(--panel);border:1px solid var(--stroke);border-radius:12px;
+  box-shadow:var(--shadow-pop);overflow:hidden;display:flex;flex-direction:column}
+.histmenu[hidden]{display:none}
+.hist-head{padding:10px 14px 8px;font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--text-soft);border-bottom:1px solid var(--stroke)}
+.hist-list{max-height:300px;overflow-y:auto;padding:5px}
+.hist-item{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border:none;
+  background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-size:12.5px;
+  color:var(--text)}
+.hist-item:hover{background:var(--panel-soft)}
+/* the dot column reads as a timeline running down the list */
+.hist-dot{width:7px;height:7px;border-radius:50%;background:var(--stroke);flex:none}
+.hist-item.future{color:var(--text-soft)}
+.hist-item.future .hist-dot{background:transparent;border:1.5px solid var(--stroke)}
+.hist-item.now{background:var(--brand-weak);color:var(--brand);font-weight:600;cursor:default}
+.hist-item.now .hist-dot{background:var(--brand)}
+.hist-when{margin-left:auto;font-size:10.5px;color:var(--text-soft);font-family:var(--font-mono);flex:none}
+.hist-empty{padding:14px;font-size:12.5px;color:var(--text-soft);text-align:center}
+
+/* Fitting the bars without clipping.
+   Popups (the Save dropdown, the history panel) live inside these bars, so the bars can
+   never be scroll containers - that clips the popups. Instead the CONTENT gets smaller as
+   the window narrows: labels drop away and buttons become icon-only, so everything stays
+   reachable at any width. */
+@media (max-width:1240px){
+  .brand .tag{display:none}
+  .header{gap:10px}
+  .toolbar{gap:10px}
+}
+@media (max-width:1120px){
+  /* icon-only for the secondary actions; their tooltips still name them */
+  #printBtn .btn-label,#previewBtn .btn-label,#searchBtn .btn-label{display:none}
+  #printBtn,#previewBtn,#searchBtn{padding:8px;width:34px;justify-content:center}
+}
+@media (max-width:1000px){
+  #mergeBtn .btn-label,#openBtn .btn-label,#undoBtn .btn-label{display:none}
+  #mergeBtn,#openBtn{padding:8px;width:34px;justify-content:center}
+  #undoBtn{padding:8px}
+  .docbar-path{display:none}
+}
+
+/* Running version, shown next to the shortcuts heading: without it there's no way to tell
+   whether an update actually landed. */
+.ver-badge{font-size:11px;font-weight:600;color:var(--text-soft);font-family:var(--font-mono);
+  background:var(--panel-soft);border:1px solid var(--stroke);border-radius:6px;
+  padding:2px 7px;margin-left:8px;vertical-align:middle}
+.ver-badge:empty{display:none}
+
+/* Reclaim toolbar width before anything can be pushed off the edge: the word labels go
+   first (the swatches and the B/I/U buttons are self-explanatory). */
+@media (max-width:1400px){
+  .ctl .lbl{display:none}
+}
+
+/* Where an edit happened, shown while hovering a history entry. Purely a preview - it
+   disappears on mouse-out and changes nothing. */
+.hist-marker{position:absolute;z-index:6;pointer-events:none;border-radius:3px;
+  border:2px solid var(--brand);background:rgba(74,58,217,.14);
+  box-shadow:0 0 0 3px rgba(74,58,217,.14);animation:histPulse 1.1s ease-in-out infinite}
+@keyframes histPulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* a page-level edit with no single mark to point at: outline the page instead */
+.hist-marker.whole-page{background:rgba(74,58,217,.06);border-style:dashed}
+.hist-page{font-size:10px;color:var(--text-soft);font-family:var(--font-mono);
+  background:var(--panel-soft);border-radius:4px;padding:1px 4px;margin-left:auto;flex:none}
+.hist-item .hist-when{margin-left:6px}
 
 </style>
 </head>
@@ -496,7 +645,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </button>
       <button class="btn ghost" id="searchBtn" disabled title="Find text in the document (⌘/Ctrl+F)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        Search
+        <span class="btn-label">Search</span>
       </button>
       <button class="btn ghost iconly" id="checkUpdatesBtn" hidden title="Check for a newer version of Marginal">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
@@ -506,38 +655,35 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </button>
       <button class="btn" id="openBtn" title="Open a PDF (⌘/Ctrl+O)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        Open
+        <span class="btn-label">Open</span>
       </button>
       <button class="btn" id="mergeBtn" title="Merge multiple PDFs into one">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="9" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/></svg>
-        Merge
+        <span class="btn-label">Merge</span>
       </button>
       <button class="btn" id="printBtn" disabled title="Print (⌘/Ctrl+P)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Print
+        <span class="btn-label">Print</span>
       </button>
       <button class="btn" id="previewBtn" disabled title="Preview the finished PDF">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-        Preview
+        <span class="btn-label">Preview</span>
       </button>
       <div class="split">
-        <button class="btn primary" id="downloadBtn" disabled title="Save As — always asks where to save (⌘/Ctrl+Shift+S)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-          Save As
+        <button class="btn primary" id="downloadBtn" disabled title="Save (⌘/Ctrl+S)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+          Save
         </button>
         <button class="btn primary caret" id="downloadMenuBtn" disabled aria-haspopup="true" aria-expanded="false" title="More save options">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="menu" id="downloadMenu" hidden role="menu">
-          <button id="dlSave" role="menuitem">
-            <strong>Save</strong><span>Writes back to this file's location — asks where only if we don't know it yet</span>
+          <button id="dlSaveAs" role="menuitem">
+            <strong>Save As…</strong><span>Choose a new name and location</span>
           </button>
           <div class="menu-sep"></div>
-          <button id="dlAsIs" role="menuitem">
-            <strong>Save As</strong><span>Keeps fillable form fields editable</span>
-          </button>
           <button id="dlFlat" role="menuitem">
-            <strong>Save As flattened</strong><span>Locks form fields into static content</span>
+            <strong>Save flattened</strong><span>Locks form fields into static content</span>
           </button>
           <div class="menu-sep"></div>
           <button id="dlCompress" role="menuitem">
@@ -554,10 +700,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
   </header>
 
   <!-- Toolbar -->
-  <div class="tabstrip" id="tabStrip" hidden>
-    <div class="tabbar" id="tabBar"></div>
-    <button class="tabnew" id="tabNewBtn" title="Open another PDF">
+  <div class="docbar" id="docBar" hidden>
+    <span class="docbar-name" id="docBarName"></span>
+    <span class="docbar-path" id="docBarPath"></span>
+    <div class="spacer"></div>
+    <button class="docbar-new" id="tabNewBtn" title="Open another PDF in a new window">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      New window
     </button>
   </div>
 
@@ -599,11 +748,20 @@ input[type=range]{accent-color:var(--brand);width:110px}
     <div class="tb-right">
       <button class="btn ghost" id="undoBtn" disabled title="Undo (⌘/Ctrl+Z)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
-        Undo
+        <span class="btn-label">Undo</span>
       </button>
       <button class="btn ghost iconly" id="redoBtn" disabled title="Redo (⌘/Ctrl+Shift+Z)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3"/></svg>
       </button>
+      <div class="histwrap">
+        <button class="btn ghost iconly" id="historyBtn" disabled aria-haspopup="true" aria-expanded="false" title="Edit history — jump to any point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+        </button>
+        <div class="histmenu" id="historyMenu" hidden role="menu">
+          <div class="hist-head">Edit history</div>
+          <div class="hist-list" id="historyList"></div>
+        </div>
+      </div>
       <div class="divider"></div>
       <div class="pagenav" id="pageNav" title="Go to page">
         <button class="zbtn" id="pagePrev" title="Previous page">
@@ -629,7 +787,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <button class="zbtn" id="deletePageBtn" disabled title="Delete this page">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 11h6"/></svg>
         </button>
-        <button class="zbtn" id="insertImageBtn" disabled title="Insert an image (PNG/JPG) as a new page">
+        <button class="zbtn" id="insertImageBtn" disabled title="Place an image on this page - drag to move, corner to resize, snaps to the page edges">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17 4.5-4.5c.8-.8 2-.8 2.8 0L18 18"/></svg>
         </button>
         <input type="file" id="insertImageInput" accept="image/png,image/jpeg,.png,.jpg,.jpeg" class="hidden">
@@ -686,10 +844,45 @@ input[type=range]{accent-color:var(--brand);width:110px}
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy"><div class="card"><div class="spinner"></div><div class="msg" id="busyMsg"></div></div></div>
 
+<div class="modal" id="updateModal" hidden>
+  <div class="sheet unsaved-sheet">
+    <div class="sheet-head">
+      <h2>Update available</h2>
+    </div>
+    <div class="unsaved-body">
+      <p id="updateMsg">A newer version of Marginal is available.</p>
+      <p class="unsaved-where" id="updateWhere">Installing will close and reopen Marginal.</p>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" id="updateLater">Not now</button>
+      <div class="spacer"></div>
+      <button class="btn primary" id="updateNow">Install and restart</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="unsavedModal" hidden>
+  <div class="sheet unsaved-sheet">
+    <div class="sheet-head">
+      <h2>Save changes?</h2>
+    </div>
+    <div class="unsaved-body">
+      <p id="unsavedMsg">This document has unsaved changes.</p>
+      <p class="unsaved-where" id="unsavedWhere"></p>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" id="unsavedCancel">Cancel</button>
+      <div class="spacer"></div>
+      <button class="btn ghost danger" id="unsavedDiscard">Don't save</button>
+      <button class="btn primary" id="unsavedSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="shortcutsModal" hidden>
   <div class="sheet shortcuts-sheet">
     <div class="sheet-head">
-      <h2>Keyboard shortcuts</h2>
+      <h2>Keyboard shortcuts <span class="ver-badge" id="appVersion"></span></h2>
       <button class="iconbtn" id="shortcutsClose" title="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
@@ -699,7 +892,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
         <div class="shortcuts-group">File</div>
         <div class="shortcuts-row"><span>Open a PDF</span><kbd>⌘/Ctrl O</kbd></div>
         <div class="shortcuts-row"><span>Save</span><kbd>⌘/Ctrl S</kbd></div>
-        <div class="shortcuts-row"><span>Save As</span><kbd>⌘/Ctrl Shift S</kbd></div>
+        <div class="shortcuts-row"><span>Save As…</span><kbd>⌘/Ctrl Shift S</kbd></div>
+        <div class="shortcuts-row"><span>New window</span><kbd>⌘/Ctrl N</kbd></div>
         <div class="shortcuts-row"><span>Print</span><kbd>⌘/Ctrl P</kbd></div>
         <div class="shortcuts-row"><span>Find in document</span><kbd>⌘/Ctrl F</kbd></div>
         <div class="shortcuts-group">Tools</div>
@@ -742,6 +936,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       <div class="merge-list" id="mergeList"></div>
       <div class="merge-empty" id="mergeEmpty">No files added yet.</div>
     </div>
+    <div class="name-row">
+      <label class="lbl" for="mergeOutName">Save as</label>
+      <input id="mergeOutName" class="name-input" spellcheck="false" autocomplete="off">
+      <span class="name-hint">.pdf</span>
+    </div>
     <div class="sheet-foot">
       <div class="split-summary" id="mergeSummary"></div>
       <div style="display:flex;gap:10px">
@@ -772,20 +971,25 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
       <div class="split-or"><span>or split into multiple files</span></div>
 
-      <p class="split-hint">Pick how to divide the document — each row becomes its own PDF.</p>
+      <p class="split-hint">Click the scissors between any two pages to cut there. Each colour becomes its own PDF.</p>
       <div class="split-presets">
         <span class="lbl">Quick:</span>
         <span class="preset-grp">every <input id="splitEveryN" class="mini-input" inputmode="numeric" value="1"> pages <button class="btn ghost sm" id="splitEveryApply">Apply</button></span>
         <span class="preset-grp"><input id="splitEqualN" class="mini-input" inputmode="numeric" value="2"> equal parts <button class="btn ghost sm" id="splitEqualApply">Apply</button></span>
         <button class="btn ghost sm" id="splitClear">Reset to 1 file</button>
       </div>
-      <div class="range-list" id="splitRanges"></div>
+      <div class="split-pages" id="splitPages"></div>
+    </div>
+    <div class="name-row">
+      <label class="lbl" for="splitBaseName">Name the parts</label>
+      <input id="splitBaseName" class="name-input" spellcheck="false" autocomplete="off">
+      <span class="name-hint" id="splitNameHint"></span>
     </div>
     <div class="sheet-foot">
       <div class="split-summary" id="splitSummary"></div>
       <div style="display:flex;gap:10px">
         <button class="btn ghost" id="splitCancel">Cancel</button>
-        <button class="btn primary" id="splitGo" disabled>Split &amp; download</button>
+        <button class="btn primary" id="splitGo" disabled>Split &amp; save</button>
       </div>
     </div>
   </div>
@@ -995,58 +1199,102 @@ input[type=range]{accent-color:var(--brand);width:110px}
   let activeIdx = -1;
   let S = makeDocState();
 
-  // ---- tabs ----
+  // ---- one document per window ----
+  // Marginal is one-document-per-window: opening another PDF launches a separate window
+  // (see loadFile / open_in_new_window) rather than adding a tab. `docs` is kept as a
+  // single-element list purely so the per-document page and thumbnail caching below
+  // keeps working unchanged.
   function newTab() {
     const doc = makeDocState();
+    docs.length = 0;
     docs.push(doc);
-    activeIdx = docs.length - 1;
+    activeIdx = 0;
     S = doc;
     renderTabs();
     return doc;
   }
 
+  // Shows the filename and, crucially, the real file it will save over. Without that,
+  // it's possible to overwrite a template without noticing which file you're writing to.
   function renderTabs() {
-    const bar = $("tabBar");
-    $("tabStrip").hidden = docs.length === 0;
-    bar.innerHTML = "";
-    docs.forEach((doc, i) => {
-      const tab = document.createElement("div");
-      tab.className = "tab"; tab.setAttribute("aria-current", String(i === activeIdx));
-      tab.title = doc.fileName;
-      const name = document.createElement("span");
-      name.className = "tab-name" + (doc.dirty ? " dirty" : "");
-      name.textContent = doc.fileName;
-      const x = document.createElement("button");
-      x.className = "tab-x"; x.title = "Close";
-      x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-      x.onclick = (e) => { e.stopPropagation(); closeTab(i); };
-      tab.append(name, x);
-      tab.onclick = () => switchToTab(i);
-      bar.appendChild(tab);
+    $("docBar").hidden = docs.length === 0;
+    const nameEl = $("docBarName");
+    nameEl.textContent = S.fileName || "";
+    nameEl.className = "docbar-name" + (S.dirty ? " dirty" : "");
+    const pathEl = $("docBarPath");
+    if (S.filePath) {
+      pathEl.textContent = S.filePath;
+      pathEl.className = "docbar-path";
+      pathEl.title = "Save writes to " + S.filePath;
+    } else {
+      pathEl.textContent = S.pdf ? "not saved to a file yet - Save will ask where" : "";
+      pathEl.className = "docbar-path unsaved";
+      pathEl.title = "";
+    }
+  }
+
+  // Only reachable when a load fails part-way: tears the document down and returns the
+  // window to its empty state.
+  function closeTab() {
+    commitActiveEdit();
+    const doc = docs[0];
+    if (doc) {
+      if (doc.io) { try { doc.io.disconnect(); } catch (_) {} }
+      if (doc.thumbIo) { try { doc.thumbIo.disconnect(); } catch (_) {} }
+      if (doc.pdf) { try { doc.pdf.destroy(); } catch (_) {} }
+      if (doc.pagesHost) { doc.pagesHost.remove(); }
+      if (doc.thumbsHost) { doc.thumbsHost.remove(); }
+    }
+    docs.length = 0;
+    activeIdx = -1;
+    S = makeDocState();
+    renderTabs();
+    showActiveDoc();
+  }
+
+  // Asks about unsaved work before it can be lost. Resolves to "save", "discard" or
+  // "cancel" -- callers must honour "cancel" by doing nothing at all.
+  function confirmUnsaved() {
+    return new Promise((resolve) => {
+      $("unsavedMsg").textContent = (S.fileName || "This document") + " has unsaved changes.";
+      $("unsavedWhere").textContent = S.filePath ? "Save writes to " + S.filePath : "";
+      $("unsavedModal").hidden = false;
+      const done = (answer) => {
+        $("unsavedModal").hidden = true;
+        $("unsavedSave").onclick = null;
+        $("unsavedDiscard").onclick = null;
+        $("unsavedCancel").onclick = null;
+        resolve(answer);
+      };
+      $("unsavedSave").onclick = () => done("save");
+      $("unsavedDiscard").onclick = () => done("discard");
+      $("unsavedCancel").onclick = () => done("cancel");
     });
   }
 
-  // Redraws the workspace for whichever doc is now active. Re-renders from the cached
-  // pdf.js document rather than re-parsing the file, so it's a fresh render, not a
-  // fresh load — a deliberate simplicity/speed tradeoff over keeping every tab's DOM
-  // alive in the background.
-  // Shows this tab's own page container, hides every other tab's. Nothing is rebuilt —
-  // a tab's pages, once rendered, stay in the DOM (just hidden) for as long as the tab
-  // stays open, so switching back to it is instant instead of a fresh re-render.
+  // Shows this document's page container and hides any other (a previous document's
+  // container is removed on close, but this stays correct either way).
   function showPagesHostFor(doc) {
-    document.querySelectorAll('#pagesWrap > .pages').forEach((el) => {
+    document.querySelectorAll("#pagesWrap > .pages").forEach((el) => {
       el.classList.toggle("cached-hidden", el !== doc.pagesHost);
     });
   }
 
+  function setToolbarEnabled(on) {
+    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW",
+     "insertPageBtn", "deletePageBtn", "thumbsBtn", "insertImageBtn"].forEach((id) => { $(id).disabled = !on; });
+  }
+
+  // Redraws the whole workspace for the current document (or the empty state).
   async function showActiveDoc() {
     closeSearch();
     if (!S.pdf) {
       $("empty").classList.remove("hidden");
       $("thumbSidebar").hidden = true;
+      $("scrollPage").hidden = true;
+      $("scrollPage").classList.remove("show");
       setToolbarEnabled(false);
-      $("undoBtn").disabled = true;
-      $("redoBtn").disabled = true;
+      updateUndoRedoUI();
       buildContext();
       return;
     }
@@ -1062,52 +1310,15 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (S.thumbsOpen) { buildThumbs(); syncThumbHighlight(); }
     refreshPageTotal();
     updateZoomUI();
-    $("undoBtn").disabled = S.undo.length === 0;
-    $("redoBtn").disabled = S.redo.length === 0;
+    updateUndoRedoUI();
+    updatePageUI();
     buildContext();
     document.querySelectorAll(".tool").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === S.tool)));
     $("workspace").className = "workspace tool-" + S.tool;
   }
 
-  function setToolbarEnabled(on) {
-    ["downloadBtn", "downloadMenuBtn", "previewBtn", "printBtn", "searchBtn", "rotateCCW", "rotateCW", "insertPageBtn", "deletePageBtn", "thumbsBtn", "insertImageBtn"].forEach((id) => { $(id).disabled = !on; });
-  }
-
-  async function switchToTab(i) {
-    if (i === activeIdx || i < 0 || i >= docs.length) return;
-    commitActiveEdit();   // don't leave a text edit dangling in the tab we're leaving
-    activeIdx = i; S = docs[i];
-    renderTabs();
-    await showActiveDoc();
-  }
-
-  function closeTab(i) {
-    if (i < 0 || i >= docs.length) return;
-    commitActiveEdit();
-    const doc = docs[i];
-    if (doc.io) { try { doc.io.disconnect(); } catch (_) {} }
-    if (doc.thumbIo) { try { doc.thumbIo.disconnect(); } catch (_) {} }
-    if (doc.pdf) { try { doc.pdf.destroy(); } catch (_) {} }
-    if (doc.pagesHost) { doc.pagesHost.remove(); }
-    if (doc.thumbsHost) { doc.thumbsHost.remove(); }
-    docs.splice(i, 1);
-    if (docs.length === 0) {
-      activeIdx = -1; S = makeDocState();
-      renderTabs(); showActiveDoc();
-      return;
-    }
-    if (i === activeIdx) {
-      activeIdx = Math.min(i, docs.length - 1);
-      S = docs[activeIdx];
-      renderTabs(); showActiveDoc();
-    } else {
-      if (i < activeIdx) activeIdx--;
-      renderTabs();   // just needs re-numbering; the visible doc didn't change
-    }
-  }
-
   let uid = 1;
-  let _dragFromIdx = null;   // thumbnail drag-and-drop reorder state
+  let appVersion = "";   // the running app version, once Tauri reports it
   const nid = () => "a" + uid++;
 
   // ============================================================
@@ -1139,16 +1350,15 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("openBtn").onclick = pickFile;
     $("shortcutsBtn").onclick = () => { $("shortcutsModal").hidden = false; };
     $("shortcutsClose").onclick = () => { $("shortcutsModal").hidden = true; };
-    $("tabNewBtn").onclick = pickFile;
+    $("tabNewBtn").onclick = openEmptyWindow;
     $("dropOpenBtn").onclick = pickFile;
     $("fileInput").onchange = (e) => { Array.from(e.target.files).forEach((f) => loadFile(f)); e.target.value = ""; };
-    $("downloadBtn").onclick = () => doDownload();
-    $("dlSave").onclick = () => { closeDownloadMenu(); doSave(); };
-    $("dlAsIs").onclick = () => { closeDownloadMenu(); doDownload(); };
+    $("downloadBtn").onclick = () => doSave();
+    $("dlSaveAs").onclick = () => { closeDownloadMenu(); doDownload(); };
     $("dlFlat").onclick = () => { closeDownloadMenu(); doDownload({ flatten: true }); };
     $("dlSplit").onclick = () => { closeDownloadMenu(); openSplitModal(); };
     $("dlCompress").onclick = () => { closeDownloadMenu(); doCompress(); };
-    $("downloadMenuBtn").onclick = (e) => { e.stopPropagation(); toggleDownloadMenu(); };
+    $("downloadMenuBtn").onclick = (e) => { if (e && e.stopPropagation) e.stopPropagation(); toggleDownloadMenu(); };
     document.addEventListener("pointerdown", (e) => {
       const m = $("downloadMenu");
       if (!m.hidden && !$("downloadMenu").contains(e.target) && e.target !== $("downloadMenuBtn") && !$("downloadMenuBtn").contains(e.target)) closeDownloadMenu();
@@ -1163,6 +1373,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
     };
     $("undoBtn").onclick = undo;
     $("redoBtn").onclick = redo;
+    $("historyBtn").onclick = (e) => { if (e && e.stopPropagation) e.stopPropagation(); toggleHistory(); };
+    document.addEventListener("pointerdown", (e) => {
+      if (!$("historyMenu").hidden && !e.target.closest(".histwrap")) closeHistory();
+    });
   }
 
   async function pickFile() {
@@ -1170,14 +1384,21 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (!T) { $("fileInput").click(); return; }
     try {
       const results = await T.core.invoke("open_files_dialog");
-      for (const r of results) {
-        const f = new File([_bytesOfB64(r.b64)], r.name, { type: "application/octet-stream" });
-        loadFile(f, r.path);   // not awaited — same "each opens its own tab" pattern as the file input
-      }
+      // Selecting several files at once opens each in its own window; loadFile decides
+      // whether that means loading here (this window is empty) or spawning a new one.
+      for (const r of results) await loadFile(new File([_bytesOfB64(r.b64)], r.name, { type: "application/octet-stream" }), r.path);
     } catch (e) {
       console.error(e);
       toast("Couldn't open that file.");
     }
+  }
+
+  // A fresh, empty Marginal window - the person picks a file from there.
+  async function openEmptyWindow() {
+    const T = window.__TAURI__;
+    if (!T) { $("fileInput").click(); return; }
+    try { await T.core.invoke("open_in_new_window", { path: null }); }
+    catch (e) { console.error(e); toast("Couldn't open a new window."); }
   }
 
   function wireDrop() {
@@ -1246,13 +1467,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const p = PALETTES[fam];
     if (!p) return;
 
-    if (S.tool === "edittext") {
-      const hint = document.createElement("span");
-      hint.className = "lbl"; hint.style.opacity = ".8"; hint.style.marginRight = "4px";
-      hint.textContent = "Click any text to edit it";
-      c.appendChild(hint);
-    }
-
     // color swatches
     const wrap = document.createElement("div"); wrap.className = "ctl";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Color";
@@ -1294,18 +1508,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // Font-size control: a dropdown of common sizes that also accepts a typed custom value
   // (an <input list=...> combo — shows presets, but you can just type any number too).
-  const FONT_SIZE_PRESETS = [6, 7, 8, 9, 10, 10.5, 11, 12, 14, 15, 16, 18, 20, 24, 28, 32, 36, 40, 48, 60, 72];
-  let _fsSeq = 0;
   const round1 = (n) => Math.round(n * 10) / 10;
   function buildFontSizeControl(value, onChange) {
     const box = document.createElement("div"); box.className = "ctl";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Size";
-    const listId = "fsPresets" + (_fsSeq++);
-    const dl = document.createElement("datalist"); dl.id = listId;
-    FONT_SIZE_PRESETS.forEach((s) => { const o = document.createElement("option"); o.value = String(s); dl.appendChild(o); });
+    // Plain number field on purpose: the old datalist added a dropdown caret that got in
+    // the way far more than the preset list helped.
     const inp = document.createElement("input");
     inp.type = "number"; inp.className = "sizeinput"; inp.min = "1"; inp.max = "400"; inp.step = "0.5";
-    inp.setAttribute("list", listId);
     inp.value = round1(value);
     const commit = () => {
       let n = parseFloat(inp.value);
@@ -1316,7 +1526,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     };
     inp.addEventListener("change", commit);
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); inp.blur(); } });
-    box.append(lbl, inp, dl);
+    box.append(lbl, inp);
     return box;
   }
 
@@ -1333,7 +1543,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   // the family that owns a given annotation type
-  function familyOf(a) { return a.type === "text" ? "text" : a.type; }
+  function familyOf(a) { return a.type === "text" ? "text" : a.type === "cover" ? "whiteout" : a.type; }
 
   // Editor shown in the strip when a mark is selected (color + a real Size slider).
   const SEL_SIZE_RANGE = { text: [6, 96], check: [4, 240], sign: [40, 600] };
@@ -1387,23 +1597,24 @@ input[type=range]{accent-color:var(--brand);width:110px}
       bBtn.title = "Bold"; bBtn.setAttribute("aria-pressed", String(bold));
       const iBtn = document.createElement("button"); iBtn.className = "fbtn"; iBtn.textContent = "I"; iBtn.style.fontStyle = "italic";
       iBtn.title = "Italic"; iBtn.setAttribute("aria-pressed", String(ital));
+      // Underline isn't a font variant like bold/italic (the standard PDF fonts have no
+      // underlined cut), so it's its own flag and gets drawn as a line at export.
+      const uBtn = document.createElement("button"); uBtn.className = "fbtn"; uBtn.textContent = "U";
+      uBtn.style.textDecoration = "underline";
+      uBtn.title = "Underline"; uBtn.setAttribute("aria-pressed", String(!!a.under));
       bBtn.onclick = () => { bold = !bold; bBtn.setAttribute("aria-pressed", String(bold)); setSelFont(a, bold, ital); };
       iBtn.onclick = () => { ital = !ital; iBtn.setAttribute("aria-pressed", String(ital)); setSelFont(a, bold, ital); };
-      box.append(l3, bBtn, iBtn); c.appendChild(box);
+      uBtn.onclick = () => { pushUndo({ label: "Underline" }); a.under = !a.under; uBtn.setAttribute("aria-pressed", String(!!a.under)); layout(); markDirty(); };
+      box.append(l3, bBtn, iBtn, uBtn); c.appendChild(box);
     }
   }
 
-  function setSelColor(a, col) { pushUndo(); a.color = col; layout(); }
+  function setSelColor(a, col) { pushUndo({ label: "Colour change" }); a.color = col; layout(); }
 
   // Controls shown while actively typing into a text mark (Add text / Edit text).
   // Changes apply straight to the in-progress mark and its live DOM node — never
   // through layout(), which would rebuild the DOM and kill the typing cursor.
   function buildEditingEditor(c, a, el) {
-    const tag = document.createElement("span");
-    tag.className = "lbl"; tag.style.opacity = ".8"; tag.style.marginRight = "6px";
-    tag.textContent = "Editing text";
-    c.appendChild(tag);
-
     const pal = PALETTES.text;
     const wrap = document.createElement("div"); wrap.className = "ctl";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Color";
@@ -1439,9 +1650,18 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.style.fontFamily = fc[0]; el.style.fontWeight = fc[1]; el.style.fontStyle = fc[2];
       markDirty(); refocusEditing();
     };
+    const uBtn = document.createElement("button"); uBtn.className = "fbtn"; uBtn.textContent = "U";
+    uBtn.style.textDecoration = "underline";
+    uBtn.title = "Underline"; uBtn.setAttribute("aria-pressed", String(!!a.under));
     bBtn.onclick = () => { bold = !bold; bBtn.setAttribute("aria-pressed", String(bold)); applyStyle(); };
     iBtn.onclick = () => { ital = !ital; iBtn.setAttribute("aria-pressed", String(ital)); applyStyle(); };
-    box.append(l3, bBtn, iBtn); c.appendChild(box);
+    uBtn.onclick = () => {
+      a.under = !a.under;
+      uBtn.setAttribute("aria-pressed", String(!!a.under));
+      el.style.textDecoration = a.under ? "underline" : "none";
+      markDirty(); refocusEditing();
+    };
+    box.append(l3, bBtn, iBtn, uBtn); c.appendChild(box);
   }
 
   // After using a context-strip control, hand focus (and the cursor) back to the
@@ -1466,7 +1686,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (base === "Courier") return bold && ital ? "Courier-BoldOblique" : bold ? "Courier-Bold" : ital ? "Courier-Oblique" : "Courier";
     return bold && ital ? "Helvetica-BoldOblique" : bold ? "Helvetica-Bold" : ital ? "Helvetica-Oblique" : "Helvetica";
   }
-  function setSelFont(a, bold, ital) { pushUndo(); a.font = makeFontKey(fontParts(a.font).base, bold, ital); layout(); }
+  function setSelFont(a, bold, ital) { pushUndo({ label: "Bold / italic" }); a.font = makeFontKey(fontParts(a.font).base, bold, ital); layout(); }
 
   // Paste (duplicate) the mark copied with Ctrl/Cmd+C. Lands on the same page it was
   // copied from, nudged a bit each successive paste so copies fan out instead of stacking.
@@ -1487,16 +1707,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
     markDirty();
   }
   function setSelSize(a, val) {
-    pushUndo();
+    pushUndo({ label: "Resize mark" });
     if (a.type === "text") a.size = val;
     else if (a.type === "check") { a.w = val; a.h = val; }
-    else if (a.type === "sign") { const r = a.ratio || (a.w / a.h) || 1; a.w = val; a.h = val / r; }
+    else if (a.type === "sign" || a.type === "image") { const r = a.ratio || (a.w / a.h) || 1; a.w = val; a.h = val / r; }
     else if (a.w != null) { a.w = val; a.h = val; }
     layout();
   }
   function scaleSelected(f) {
     const a = current(); if (!a) return;
-    pushUndo();
+    pushUndo({ label: "Resize mark" });
     if (a.type === "text") a.size = Math.max(4, a.size * f);
     else if (a.w != null) { a.w = Math.max(4, a.w * f); a.h = Math.max(4, a.h * f); }
     else return;
@@ -1506,12 +1726,12 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // apply live changes from the context strip to the selected mark (if it matches)
   function applyColorToSelection(col) {
     const a = current(); if (!a || familyOf(a) !== FAMILY[S.tool]) return;
-    pushUndo(); a.color = col; layout();
+    pushUndo({ label: "Colour change" }); a.color = col; layout();
   }
   function applySizeToSelection(n) {
     const a = current(); if (!a || familyOf(a) !== FAMILY[S.tool]) return;
-    if (a.type === "text") { pushUndo(); a.size = n; layout(); }
-    else if (a.type === "check") { pushUndo(); a.w = n; a.h = n; layout(); }
+    if (a.type === "text") { pushUndo({ label: "Resize text" }); a.size = n; layout(); }
+    else if (a.type === "check") { pushUndo({ label: "Resize checkbox" }); a.w = n; a.h = n; layout(); }
   }
 
   // ============================================================
@@ -1541,8 +1761,27 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   async function loadFile(file, filePath) {
     if (/\.docx$/i.test(file.name)) return loadDocxFile(file);
+    const name = file.name || "document.pdf";
+    const T = window.__TAURI__;
+    // One document per window. If this window already holds one and we know the new
+    // file's real path, hand it to a fresh window instead of displacing what's open.
+    if (S.pdf && T && filePath) {
+      try {
+        await T.core.invoke("open_in_new_window", { path: filePath });
+        return;
+      } catch (e) {
+        console.error("couldn't open a new window, loading here instead:", e);
+      }
+    }
+    // We're about to replace what's in this window (a drag-dropped file has no path to
+    // hand to a new window, so it loads here) - don't silently discard unsaved edits.
+    if (S.pdf && S.dirty) {
+      const choice = await confirmUnsaved();
+      if (choice === "cancel") return;
+      if (choice === "save") { const saved = await doSave(); if (!saved) return; }
+    }
     const doc = newTab();   // every open (Open button, drag-drop, double-click-to-open) is its own tab
-    doc.fileName = file.name || "document.pdf";
+    doc.fileName = name;
     doc.filePath = filePath || null;
     renderTabs();
     try {
@@ -1564,13 +1803,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
         $("searchBar").hidden = true; $("searchInput").value = ""; $("searchCount").textContent = "";
         clearOcrStatus();
         setToolbarEnabled(true);
-        $("undoBtn").disabled = true;
-        $("redoBtn").disabled = true;
+        updateUndoRedoUI();
         $("empty").classList.add("hidden");
         await buildPages();
         showPagesHostFor(doc);
         refreshPageTotal();
         fitWidth();
+        updatePageUI();
       }
       toast("Opened " + doc.fileName);
     } catch (err) {
@@ -1606,7 +1845,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const textDiv = document.createElement("div"); textDiv.className = "textLayer";
       const searchLayer = document.createElement("div"); searchLayer.className = "searchLayer";
       const overlay = document.createElement("div"); overlay.className = "overlay";
-      const pnum = document.createElement("div"); pnum.className = "pnum"; pnum.textContent = i + " / " + S.pdf.numPages;
+      const pnum = document.createElement("div"); pnum.className = "pnum"; pnum.textContent = "Page " + i + " of " + S.pdf.numPages;
       wrap.append(textDiv, searchLayer, overlay, pnum);
       host.appendChild(wrap);
       // Edit-text: click real document text to replace it. (OCR image-text isn't in the
@@ -1654,7 +1893,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function rotatePage(idx, delta) {
     const rec = S.pages[idx];
     if (!rec) return;
-    pushUndo();
+    pushUndo({ label: "Rotate page" });
     const oldW = rec.wPts, oldH = rec.hPts;
     const netDelta = ((delta % 360) + 360) % 360;   // 90 or 270
     S.annots.forEach((a) => {
@@ -1686,6 +1925,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, "Inserting page…");
       await ensurePdflib();
+      pushUndo({ structural: true, label: "Insert blank page" });
       const { PDFDocument } = PDFLib;
       const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       const ref = S.pages[idx];
@@ -1705,7 +1945,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       markDirty();
       if (S.thumbsOpen) buildThumbs();
       goToPage(idx + 2);
-      toast("Inserted a blank page after page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+      toast("Inserted a blank page after page " + (idx + 1) + ".");
     } catch (e) {
       console.error(e);
       toast("Couldn't insert a page.");
@@ -1717,6 +1957,51 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // page's width matches the current page (so it lines up with the rest of the
   // document); its height comes from the image's own aspect ratio, so nothing gets
   // stretched or cropped.
+  // Places a picture on the current page as a movable, resizable object. Starts at a
+  // readable size (about half the page width, never taller than the page) rather than
+  // full-bleed, so it's obvious it can be dragged and scaled. Drag it near an edge and it
+  // snaps flush; pull the corner to the far edge and it covers the whole page.
+  async function placeImage(file) {
+    if (!S.pdf || !file) return;
+    const isPng = /png$/i.test(file.type) || /\.png$/i.test(file.name);
+    const isJpg = /jpe?g$/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+    if (!isPng && !isJpg) { toast("Please choose a PNG or JPEG image."); return; }
+    const idx = currentPageIdx();
+    const rec = S.pages[idx];
+    if (!rec) return;
+    try {
+      busy(true, "Placing image…");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const dataUrl = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = () => rej(new Error("couldn't read that image"));
+        fr.readAsDataURL(new Blob([bytes], { type: isPng ? "image/png" : "image/jpeg" }));
+      });
+      const bmp = await createImageBitmap(new Blob([bytes]));
+      const iw = bmp.width, ih = bmp.height;
+      if (bmp.close) bmp.close();
+      if (!iw || !ih) throw new Error("couldn't read that image's dimensions");
+      const ratio = iw / ih;
+      let w = rec.wPts * 0.5;
+      let h = w / ratio;
+      if (h > rec.hPts * 0.8) { h = rec.hPts * 0.8; w = h * ratio; }
+      const x = (rec.wPts - w) / 2;
+      const y = (rec.hPts - h) / 2;
+      pushUndo({ label: "Place image" });
+      const a = { id: nid(), page: idx, type: "image", x, y, w, h, dataUrl, ratio };
+      S.annots.push(a);
+      layout();
+      select(a.id);
+      setTool("move");
+      markDirty();
+      toast("Image placed — drag to move, corner to resize. It snaps to the page edges.");
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't place that image.");
+    } finally { busy(false); }
+  }
+
   async function insertImagePage(file) {
     if (!S.pdf || !file) return;
     const isPng = /png$/i.test(file.type) || /\.png$/i.test(file.name);
@@ -1731,6 +2016,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (bitmap.close) bitmap.close();
       if (!imgW || !imgH) throw new Error("couldn't read that image's dimensions");
       await ensurePdflib();
+      pushUndo({ structural: true, label: "Insert image page" });
       const { PDFDocument } = PDFLib;
       const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       const ref = S.pages[idx];
@@ -1754,7 +2040,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       markDirty();
       if (S.thumbsOpen) buildThumbs();
       goToPage(idx + 2);
-      toast("Inserted the image as a new page after page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+      toast("Inserted the image as a new page after page " + (idx + 1) + ".");
     } catch (e) {
       console.error(e);
       toast("Couldn't insert that image.");
@@ -1773,6 +2059,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, "Deleting page…");
       await ensurePdflib();
+      pushUndo({ structural: true, label: "Delete page" });
       const { PDFDocument } = PDFLib;
       const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       pdf.removePage(idx);
@@ -1791,7 +2078,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       markDirty();
       if (S.thumbsOpen) buildThumbs();
       goToPage(Math.min(idx + 1, S.pages.length));
-      toast("Deleted page " + (idx + 1) + " — this isn't part of Undo, since it changes the page count.");
+      toast("Deleted page " + (idx + 1) + ".");
     } catch (e) {
       console.error(e);
       toast("Couldn't delete that page.");
@@ -1868,34 +2155,67 @@ input[type=range]{accent-color:var(--brand);width:110px}
       moves.append(up, down);
       label.append(num, moves);
       card.append(canvas, label);
-      card.onclick = () => goToPage(idx + 1);
-      card.draggable = true;
-      card.addEventListener("dragstart", (e) => {
-        _dragFromIdx = +card.dataset.idx;
-        card.classList.add("dragging");
-        try { e.dataTransfer.setData("text/plain", String(_dragFromIdx)); e.dataTransfer.effectAllowed = "move"; } catch (_) {}
-      });
-      card.addEventListener("dragend", () => {
-        _dragFromIdx = null;
-        S.thumbsHost.querySelectorAll(".thumbCard").forEach((c) => c.classList.remove("dragging", "dragOver"));
-      });
-      card.addEventListener("dragover", (e) => {
-        if (_dragFromIdx == null) return;
-        e.preventDefault();
-        card.classList.add("dragOver");
-      });
-      card.addEventListener("dragleave", () => card.classList.remove("dragOver"));
-      card.addEventListener("drop", (e) => {
-        e.preventDefault();
-        card.classList.remove("dragOver");
-        const from = _dragFromIdx != null ? _dragFromIdx : +e.dataTransfer.getData("text/plain");
-        const to = +card.dataset.idx;
-        if (isFinite(from) && from !== to) dragReorderPage(from, to);
+      // Reordering uses pointer events rather than HTML5 drag-and-drop on purpose: inside
+      // the desktop webview the OS-level file-drop handling swallows dragstart/drop, so the
+      // HTML5 version silently did nothing. Pointer events aren't affected by that.
+      card.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest(".thumbMoveBtns")) return;   // the up/down buttons
+        beginThumbDrag(e, card);
       });
       rec.thumbCard = card; rec.thumbCanvas = canvas; rec.thumbRendered = false;
       host.appendChild(card);
       S.thumbIo.observe(card);
     });
+  }
+
+  // Pointer-driven page reordering in the sidebar. A short press is still a click (jump to
+  // that page); only once the pointer has actually moved does it become a drag, so the two
+  // gestures don't fight each other.
+  function beginThumbDrag(e, card) {
+    const startX = e.clientX, startY = e.clientY;
+    const from = +card.dataset.idx;
+    let dragging = false;
+    let target = from;
+
+    const cardsNow = () => Array.from(S.thumbsHost ? S.thumbsHost.querySelectorAll(".thumbCard") : []);
+    const clearMarks = () => cardsNow().forEach((c) => c.classList.remove("dragging", "dragOver"));
+
+    const move = (ev) => {
+      if (!dragging && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+      if (!dragging) {
+        dragging = true;
+        card.classList.add("dragging");
+        try { card.setPointerCapture(ev.pointerId); } catch (_) {}
+      }
+      ev.preventDefault();
+      // Work out which thumbnail the pointer is currently over by hit-testing the cards'
+      // own boxes -- elementFromPoint would just return the dragged card under the cursor.
+      let best = null, bestDist = Infinity;
+      for (const c of cardsNow()) {
+        const r = c.getBoundingClientRect();
+        const cy = r.top + r.height / 2, cx = r.left + r.width / 2;
+        const d = Math.hypot(ev.clientX - cx, ev.clientY - cy);
+        if (d < bestDist) { bestDist = d; best = c; }
+      }
+      cardsNow().forEach((c) => { if (c !== card) c.classList.remove("dragOver"); });
+      if (best && best !== card) { best.classList.add("dragOver"); target = +best.dataset.idx; }
+      else target = from;
+    };
+
+    const up = (ev) => {
+      card.removeEventListener("pointermove", move);
+      card.removeEventListener("pointerup", up);
+      card.removeEventListener("pointercancel", up);
+      try { card.releasePointerCapture(ev.pointerId); } catch (_) {}
+      clearMarks();
+      if (!dragging) { goToPage(from + 1); return; }   // never moved -> treat as a click
+      if (target !== from) dragReorderPage(from, target);
+    };
+
+    card.addEventListener("pointermove", move);
+    card.addEventListener("pointerup", up);
+    card.addEventListener("pointercancel", up);
   }
 
   function renderThumb(idx) {
@@ -1949,7 +2269,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, "Reordering…");
       await ensurePdflib();
-      pushUndo({ structural: true });
+      pushUndo({ structural: true, label: "Reorder pages" });
       const { PDFDocument } = PDFLib;
       const src = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
       const out = await PDFDocument.create();
@@ -2081,12 +2401,130 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("workspace").addEventListener("wheel", (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
+      e.stopPropagation();   // never let a zoom gesture also scroll the page
       const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
       zoomAt(S.zoom * factor, e.clientX, e.clientY);
     }, { passive: false });
   }
 
   function setZoom(z) { zoomAt(z, null, null); }
+  // Keeps the undo/redo buttons and their depth badges in sync. The visible count is the
+  // point: without it there's no way to tell how far back you can go, so people don't
+  // trust undo and avoid experimenting.
+  // ---- edit history timeline ----
+  // Reads top-to-bottom as newest-first: anything you've undone sits above "Now" as a
+  // greyed-out future you can jump forward into, and past edits sit below it. Clicking any
+  // entry runs the right number of undos or redos to land exactly there, so you can move
+  // through the history instead of guessing how many times to press Ctrl+Z.
+  function closeHistory() {
+    clearHistoryPreview();
+    const m = $("historyMenu");
+    if (m) { m.hidden = true; $("historyBtn").setAttribute("aria-expanded", "false"); }
+  }
+
+  function renderHistory() {
+    const list = $("historyList");
+    list.innerHTML = "";
+    const rows = [];
+    // future (things undone), newest-first from the top
+    S.redo.forEach((e, i) => rows.push({ label: e.label, cls: "future", steps: S.redo.length - i, dir: "redo", where: e.where }));
+    rows.push({ label: "Now", cls: "now", steps: 0 });
+    // past, most recent first
+    for (let i = S.undo.length - 1; i >= 0; i--) {
+      rows.push({ label: S.undo[i].label, cls: "", steps: S.undo.length - i, dir: "undo", where: S.undo[i].where });
+    }
+    if (S.undo.length === 0 && S.redo.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "hist-empty";
+      empty.textContent = "No edits yet.";
+      list.appendChild(empty);
+      return;
+    }
+    rows.forEach((r) => {
+      const b = document.createElement("button");
+      b.className = "hist-item " + r.cls;
+      b.setAttribute("role", "menuitem");
+      const dot = document.createElement("span"); dot.className = "hist-dot";
+      const txt = document.createElement("span"); txt.textContent = r.label;
+      b.append(dot, txt);
+      if (r.steps > 0) {
+        const when = document.createElement("span");
+        when.className = "hist-when";
+        when.textContent = (r.dir === "undo" ? "-" : "+") + r.steps;
+        b.appendChild(when);
+        // Preview on hover: scroll to where that edit happened and outline the spot, so you
+        // can see what you'd be going back to before committing to it.
+        if (r.where) {
+          b.onmouseenter = () => showHistoryPreview(r.where);
+          b.onfocus = () => showHistoryPreview(r.where);
+          b.onmouseleave = clearHistoryPreview;
+          b.onblur = clearHistoryPreview;
+          const pg = document.createElement("span");
+          pg.className = "hist-page";
+          pg.textContent = "p" + ((r.where.page || 0) + 1);
+          b.insertBefore(pg, when);
+        }
+        b.onclick = async () => {
+          clearHistoryPreview();
+          closeHistory();
+          for (let k = 0; k < r.steps; k++) {
+            if (r.dir === "undo") { if (!S.undo.length) break; await undo(); }
+            else { if (!S.redo.length) break; await redo(); }
+          }
+        };
+      } else {
+        b.disabled = true;
+      }
+      list.appendChild(b);
+    });
+  }
+
+  // A non-destructive look at where an edit was: navigates to the page and draws a marker
+  // over the spot. Nothing is applied until the entry is actually clicked.
+  let _histPreviewEl = null;
+  function showHistoryPreview(where) {
+    clearHistoryPreview();
+    if (!where || where.page == null) return;
+    const rec = S.pages[where.page];
+    if (!rec) return;
+    goToPage(where.page + 1);
+    const m = document.createElement("div");
+    m.className = "hist-marker" + (where.rect ? "" : " whole-page");
+    const z = S.zoom;
+    const rect = where.rect || { x: 0, y: 0, w: rec.wPts, h: rec.hPts };
+    m.style.left = (rect.x * z) + "px";
+    m.style.top = (rect.y * z) + "px";
+    m.style.width = Math.max(8, rect.w * z) + "px";
+    m.style.height = Math.max(8, rect.h * z) + "px";
+    rec.overlay.appendChild(m);
+    _histPreviewEl = m;
+  }
+  function clearHistoryPreview() {
+    if (_histPreviewEl) { _histPreviewEl.remove(); _histPreviewEl = null; }
+  }
+
+  function toggleHistory() {
+    const m = $("historyMenu");
+    if (m.hidden) { renderHistory(); m.hidden = false; $("historyBtn").setAttribute("aria-expanded", "true"); }
+    else closeHistory();
+  }
+
+  function updateUndoRedoUI() {
+    const un = S.undo ? S.undo.length : 0;
+    const rn = S.redo ? S.redo.length : 0;
+    $("undoBtn").disabled = un === 0;
+    $("redoBtn").disabled = rn === 0;
+    // depth is exposed as a data attribute (handy for debugging) but shown to the person
+    // through the tooltip and the history panel rather than a badge on the button
+    $("undoBtn").dataset.depth = String(un);
+    $("redoBtn").dataset.depth = String(rn);
+    const hb = $("historyBtn");
+    if (hb) hb.disabled = (un + rn) === 0;
+    if (!$("historyMenu").hidden) renderHistory();   // keep an open panel current
+    $("undoBtn").title = un ? "Undo " + un + " step" + (un > 1 ? "s" : "") + " (\u2318/Ctrl+Z)" : "Nothing to undo";
+    $("redoBtn").title = rn ? "Redo " + rn + " step" + (rn > 1 ? "s" : "") + " (\u2318/Ctrl+Shift+Z)" : "Nothing to redo";
+  }
+
   function updateZoomUI() { $("zoomVal").textContent = Math.round(S.zoom * 100) + "%"; }
 
   function zoomAt(z, cx, cy) {
@@ -2102,8 +2540,14 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("zoomVal").textContent = Math.round(z * 100) + "%";
     S.pages.forEach(sizePage);
     layout();
+    // The workspace scrolls smoothly by default, which would animate this correction and
+    // read as the page sliding around rather than zooming into the pointer. Anchoring has
+    // to be instant.
+    const prevBehaviour = ws.style.scrollBehavior;
+    ws.style.scrollBehavior = "auto";
     ws.scrollLeft = px * ratio - (cx == null ? rect.width / 2 : cx - rect.left);
     ws.scrollTop = py * ratio - (cy == null ? rect.height / 2 : cy - rect.top);
+    ws.style.scrollBehavior = prevBehaviour || "";
     clearTimeout(zoomAt._t);
     zoomAt._t = setTimeout(rerenderVisible, 120);
   }
@@ -2134,20 +2578,20 @@ input[type=range]{accent-color:var(--brand);width:110px}
     return best;
   }
 
-  let _pageUiRaf = 0, _scrollHideT = 0;
-  function updatePageUI(fromScroll) {
+  let _pageUiRaf = 0;
+  function updatePageUI() {
     if (!S.pages.length) return;
     const idx = currentPageIdx();
     const inp = $("pageInput");
     if (document.activeElement !== inp) inp.value = String(idx + 1);
     syncThumbHighlight();
-    if (fromScroll) {
-      const sp = $("scrollPage");
-      sp.hidden = false; sp.textContent = "Page " + (idx + 1) + " / " + S.pages.length;
-      sp.classList.add("show");
-      clearTimeout(_scrollHideT);
-      _scrollHideT = setTimeout(() => { sp.classList.remove("show"); setTimeout(() => { sp.hidden = true; }, 200); }, 700);
-    }
+    // Stays visible the whole time a document is open. It used to fade out ~0.7s after
+    // you stopped scrolling, which meant that while reading the middle of a long document
+    // there was nothing at all showing which page you were on.
+    const sp = $("scrollPage");
+    sp.hidden = false;
+    sp.textContent = "Page " + (idx + 1) + " / " + S.pages.length;
+    sp.classList.add("show");
   }
 
   function goToPage(n) {
@@ -2179,7 +2623,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("rotateCW").onclick = () => rotatePage(currentPageIdx(), 90);
     $("insertPageBtn").onclick = insertBlankPage;
     $("insertImageBtn").onclick = () => $("insertImageInput").click();
-    $("insertImageInput").onchange = (e) => { const f = e.target.files[0]; if (f) insertImagePage(f); e.target.value = ""; };
+    $("insertImageInput").onchange = (e) => { const f = e.target.files[0]; if (f) placeImage(f); e.target.value = ""; };
     $("deletePageBtn").onclick = deletePage;
     $("thumbsBtn").onclick = toggleThumbs;
   }
@@ -2223,15 +2667,29 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const y = (sr.top - or.top) / S.zoom;
     const w = sr.width / S.zoom;
     const h = sr.height / S.zoom;
+    const idx = rec.num - 1;
+    // The original text layer stays underneath after an edit, so clicking the same words
+    // again used to create a SECOND editable copy holding the original value. Both then
+    // exported on top of each other — the old value and the new one, overlapping. If this
+    // run has already been converted, just reopen that edit instead.
+    const tol = Math.max(3, h * 0.6);
+    const already = S.annots.find((a) => a.type === "text" && a.page === idx &&
+      Math.abs(a.x - x) < tol && Math.abs(a.y - y) < tol);
+    if (already) {
+      const elExisting = elFor(already.id);
+      if (elExisting) { enterEdit(elExisting, already); return; }
+    }
     const text = span.textContent;
     // text-layer spans render at fontSize = points * zoom (line-height 1), so this recovers the size
     const size = Math.max(4, +(sr.height / S.zoom).toFixed(1));
     const font = detectFontKey(span);
     const bg = sampleBg(rec, x, y, w, h);
     const color = sampleInk(rec, x, y, w, h);
-    const idx = rec.num - 1;
-    pushUndo();
-    const wo = { id: nid(), page: idx, type: "whiteout", x: x - 1, y: y - 1, w: w + 2, h: h + 2, color: bg };
+    pushUndo({ label: "Edit document text" });
+    // "cover" (not "whiteout"): this hides the words underneath without rasterising the
+    // whole page. Using whiteout here meant editing one field flattened every bit of text
+    // on that page into an image, destroying search and selection across the document.
+    const wo = { id: nid(), page: idx, type: "cover", x: x - 1, y: y - 1, w: w + 2, h: h + 2, color: bg };
     const tx = { id: nid(), page: idx, type: "text", x: x, y: y, text: text, size: size, color: color, font: font };
     S.annots.push(wo, tx);
     layout();
@@ -2306,7 +2764,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // ---- checkbox ----
   function createCheck(idx, pt) {
     const s = S.size.check;
-    pushUndo();
+    pushUndo({ label: "Add checkbox" });
     const a = { id: nid(), page: idx, type: "check", x: pt.x - s / 2, y: pt.y - s / 2, w: s, h: s, checked: false, color: S.color.check };
     S.annots.push(a);
     // drop it blank and selected so you can size/move/tick it; pick the tool again to add another
@@ -2318,7 +2776,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // ---- text ----
   function createText(idx, pt) {
-    pushUndo();
+    pushUndo({ label: "Add text" });
     const a = { id: nid(), page: idx, type: "text", x: pt.x, y: pt.y, text: "", size: S.size.text, color: S.color.text };
     S.annots.push(a);
     layout();
@@ -2366,7 +2824,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // ---- freehand draw ----
   function startDraw(rec, idx, e, pt) {
-    pushUndo();
+    pushUndo({ label: "Draw" });
     const a = { id: nid(), page: idx, type: "draw", color: S.color.draw, size: S.size.draw, pts: [pt] };
     S.annots.push(a);
     const ov = rec.overlay; ov.setPointerCapture(e.pointerId);
@@ -2457,8 +2915,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.style.fontSize = a.size * z + "px"; el.style.color = a.color; el.textContent = a.text;
       const fc = cssFont(a.font);
       el.style.fontFamily = fc[0]; el.style.fontWeight = fc[1]; el.style.fontStyle = fc[2];
+      el.style.textDecoration = a.under ? "underline" : "none";
       el.ondblclick = () => enterEdit(el, a);
-    } else if (a.type === "whiteout" || a.type === "highlight") {
+    } else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight") {
       el = div("an " + a.type);
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
@@ -2480,8 +2939,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
         pl.setAttribute("stroke-linejoin", "round");
         svg.appendChild(pl); el.appendChild(svg);
       }
-    } else if (a.type === "sign") {
-      el = div("an sign");
+    } else if (a.type === "sign" || a.type === "image") {
+      el = div("an " + a.type);
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
       const img = document.createElement("img"); img.src = a.dataUrl; img.draggable = false;
@@ -2529,7 +2988,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     el.setPointerCapture(e.pointerId);
     const move = (ev) => {
       const dx = (ev.clientX - startX) / S.zoom, dy = (ev.clientY - startY) / S.zoom;
-      if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 3) { moved = true; pushUndo(); }
+      if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 3) { moved = true; pushUndo({ label: "Move mark" }); }
       if (!moved) return;
       applyGeomDelta(a, o, dx, dy);
       positionEl(el, a);
@@ -2539,10 +2998,45 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       if (moved) { markDirty(); decorateSelected(el, a); }
-      else if (a.type === "check") { pushUndo(); a.checked = !a.checked; layout(); select(a.id); markDirty(); }
+      else if (a.type === "check") { pushUndo({ label: "Toggle checkbox" }); a.checked = !a.checked; layout(); select(a.id); markDirty(); }
     };
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
+  }
+
+  // ---- edge / centre snapping for placed images ----
+  // The threshold is derived from screen pixels, then converted to points, so snapping
+  // feels identical whether you're at 50% or 400% zoom.
+  const SNAP_PX = 8;
+  function snapBox(rec, x, y, w, h) {
+    const T = SNAP_PX / Math.max(0.05, S.zoom);
+    const W = rec.wPts, H = rec.hPts;
+    let sx = x, sy = y, hitX = null, hitY = null;
+    if (Math.abs(x) <= T) { sx = 0; hitX = "left"; }
+    else if (Math.abs((x + w) - W) <= T) { sx = W - w; hitX = "right"; }
+    else if (Math.abs((x + w / 2) - W / 2) <= T) { sx = (W - w) / 2; hitX = "centre"; }
+    if (Math.abs(y) <= T) { sy = 0; hitY = "top"; }
+    else if (Math.abs((y + h) - H) <= T) { sy = H - h; hitY = "bottom"; }
+    else if (Math.abs((y + h / 2) - H / 2) <= T) { sy = (H - h) / 2; hitY = "middle"; }
+    return { x: sx, y: sy, snapped: !!(hitX || hitY) };
+  }
+
+  // Snaps a resize so an image can sit flush to the right/bottom edge (and therefore
+  // cover the full page when dragged out from the top-left). Respects the aspect ratio:
+  // whichever edge is closer wins, and the other dimension follows.
+  function snapResize(rec, x, y, w, h, ratio) {
+    const T = SNAP_PX / Math.max(0.05, S.zoom);
+    const W = rec.wPts, H = rec.hPts;
+    const dRight = Math.abs((x + w) - W), dBottom = Math.abs((y + h) - H);
+    if (dRight <= T && (ratio ? dRight <= dBottom : true)) {
+      const nw = Math.max(4, W - x);
+      return { w: nw, h: ratio ? nw / ratio : h, snapped: true };
+    }
+    if (dBottom <= T) {
+      const nh = Math.max(4, H - y);
+      return { w: ratio ? nh * ratio : w, h: nh, snapped: true };
+    }
+    return { w, h, snapped: false };
   }
 
   function snapshotGeom(a) {
@@ -2550,14 +3044,25 @@ input[type=range]{accent-color:var(--brand);width:110px}
     return { x: a.x, y: a.y };
   }
   function applyGeomDelta(a, o, dx, dy) {
-    if (a.type === "draw") a.pts = o.pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-    else { a.x = o.x + dx; a.y = o.y + dy; }
+    if (a.type === "draw") { a.pts = o.pts.map((p) => ({ x: p.x + dx, y: p.y + dy })); return; }
+    a.x = o.x + dx; a.y = o.y + dy;
+    // Placed images snap flush to the page edges and centre lines, which is what makes
+    // "line it up with the edge" possible by hand.
+    if (a.type === "image") {
+      const rec = S.pages[a.page];
+      if (rec) {
+        const sn = snapBox(rec, a.x, a.y, a.w, a.h);
+        a.x = sn.x; a.y = sn.y;
+        const el = elFor(a.id);
+        if (el) el.classList.toggle("snapped", sn.snapped);
+      }
+    }
   }
 
   function positionEl(el, a) {
     const z = S.zoom;
     if (a.type === "text") { el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px"; }
-    else if (a.type === "whiteout" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
+    else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "image" || a.type === "check") {
       el.style.left = a.x * z + "px"; el.style.top = a.y * z + "px";
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
     } else if (a.type === "draw") {
@@ -2592,7 +3097,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.appendChild(del);
     }
     // resize handle for rects and signatures
-    if (a.type === "whiteout" || a.type === "highlight" || a.type === "sign" || a.type === "check") {
+    if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight" || a.type === "sign" || a.type === "image" || a.type === "check") {
       const h = document.createElement("div"); h.className = "handle";
       h.addEventListener("pointerdown", (e) => startResize(e, a, el, h));
       el.appendChild(h);
@@ -2602,13 +3107,21 @@ input[type=range]{accent-color:var(--brand);width:110px}
   function startResize(e, a, el, h) {
     e.stopPropagation();
     const sx = e.clientX, sy = e.clientY, ow = a.w, oh = a.h;
-    const ratio = a.type === "sign" ? (a.ratio || ow / oh) : a.type === "check" ? 1 : 0;
+    const ratio = (a.type === "sign" || a.type === "image") ? (a.ratio || ow / oh) : a.type === "check" ? 1 : 0;
     pushUndo();
     h.setPointerCapture(e.pointerId);
     const move = (ev) => {
       let nw = Math.max(4, ow + (ev.clientX - sx) / S.zoom);
       if (ratio) { a.w = nw; a.h = nw / ratio; }
       else { a.w = nw; a.h = Math.max(4, oh + (ev.clientY - sy) / S.zoom); }
+      if (a.type === "image") {
+        const rec = S.pages[a.page];
+        if (rec) {
+          const sn = snapResize(rec, a.x, a.y, a.w, a.h, ratio);
+          a.w = sn.w; a.h = sn.h;
+          el.classList.toggle("snapped", sn.snapped);
+        }
+      }
       // update size in place; the handle/delete sit at the corners via CSS, so don't rebuild them
       const z = S.zoom;
       el.style.width = a.w * z + "px"; el.style.height = a.h * z + "px";
@@ -2630,7 +3143,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function removeAnnot(id, silent) {
-    if (!silent) pushUndo();
+    if (!silent) pushUndo({ label: "Delete mark" });
     S.annots = S.annots.filter((a) => a.id !== id);
     if (S.sel === id) S.sel = null;
     layout();
@@ -2652,12 +3165,24 @@ input[type=range]{accent-color:var(--brand);width:110px}
     return JSON.stringify(entry);
   }
 
+  // Each entry carries a human-readable label as well as the snapshot, so the history
+  // panel can show what each step actually was rather than just a count.
   function pushUndo(opts) {
-    S.undo.push(captureState(!!(opts && opts.structural)));
+    opts = opts || {};
+    // Remember where the edit happened, so hovering a history entry can show you the spot
+    // before you commit to jumping back to it.
+    const sel = current();
+    const where = { page: opts.page != null ? opts.page : currentPageIdx() };
+    if (sel && sel.page != null) {
+      where.page = sel.page;
+      if (sel.w != null) where.rect = { x: sel.x, y: sel.y, w: sel.w, h: sel.h };
+      else if (sel.x != null) where.rect = { x: sel.x, y: sel.y, w: Math.max(20, (sel.size || 10) * 4), h: (sel.size || 10) * 1.3 };
+    }
+    S.undo.push({ state: captureState(!!opts.structural), label: opts.label || "Edit", where: where });
     if (S.undo.length > 60) S.undo.shift();
     S.redo = [];   // a fresh action invalidates whatever could have been redone — standard undo/redo behavior
-    $("undoBtn").disabled = false;
-    $("redoBtn").disabled = true;
+    closeHistory();
+    updateUndoRedoUI();
   }
 
   async function applySnapshot(snapStr) {
@@ -2693,16 +3218,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
       busy(true);
       // If what we're about to restore was a structural snapshot, the state we're
       // *leaving* also needs its bytes captured — otherwise redo couldn't bring it back.
-      const undoingStructural = JSON.parse(S.undo[S.undo.length - 1]).bytes != null;
-      S.redo.push(captureState(undoingStructural));
+      const top = S.undo[S.undo.length - 1];
+      const undoingStructural = JSON.parse(top.state).bytes != null;
+      S.redo.push({ state: captureState(undoingStructural), label: top.label, where: top.where });
       if (S.redo.length > 60) S.redo.shift();
-      await applySnapshot(S.undo.pop());
+      await applySnapshot(S.undo.pop().state);
     } catch (e) {
       console.error("Undo failed:", e);
       toast("Couldn't undo that.");
     } finally {
-      $("undoBtn").disabled = S.undo.length === 0;
-      $("redoBtn").disabled = S.redo.length === 0;
+      updateUndoRedoUI();
       busy(false);
     }
   }
@@ -2711,16 +3236,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
     if (!S.redo.length) return;
     try {
       busy(true);
-      const redoingStructural = JSON.parse(S.redo[S.redo.length - 1]).bytes != null;
-      S.undo.push(captureState(redoingStructural));
+      const topR = S.redo[S.redo.length - 1];
+      const redoingStructural = JSON.parse(topR.state).bytes != null;
+      S.undo.push({ state: captureState(redoingStructural), label: topR.label, where: topR.where });
       if (S.undo.length > 60) S.undo.shift();
-      await applySnapshot(S.redo.pop());
+      await applySnapshot(S.redo.pop().state);
     } catch (e) {
       console.error("Redo failed:", e);
       toast("Couldn't redo that.");
     } finally {
-      $("undoBtn").disabled = S.undo.length === 0;
-      $("redoBtn").disabled = S.redo.length === 0;
+      updateUndoRedoUI();
       busy(false);
     }
   }
@@ -2732,7 +3257,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     window.addEventListener("keydown", (e) => {
       const ae = document.activeElement;
       const typing = ae && (ae.isContentEditable || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden || !$("shortcutsModal").hidden;
+      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden || !$("shortcutsModal").hidden || !$("updateModal").hidden || !$("unsavedModal").hidden;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyF") {
         e.preventDefault();
@@ -2744,6 +3269,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         if (!$("splitModal").hidden) { closeSplitModal(); return; }
         if (!$("mergeModal").hidden) { closeMergeModal(); return; }
         if (!$("shortcutsModal").hidden) { $("shortcutsModal").hidden = true; return; }
+        if (!$("updateModal").hidden) { $("updateModal").hidden = true; return; }
         if (!$("previewModal").hidden) { closePreview(); return; }
         if (!$("defaultAppModal").hidden) { $("defaultAppModal").hidden = true; return; }
         if (!$("searchBar").hidden) { closeSearch(); return; }
@@ -2754,10 +3280,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (mod && e.code === "KeyO") { e.preventDefault(); pickFile(); return; }
       if (mod && e.shiftKey && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doDownload(); return; }
       if (mod && e.code === "KeyS") { e.preventDefault(); if (!$("downloadBtn").disabled) doSave(); return; }
+      if (mod && e.code === "KeyN") { e.preventDefault(); openEmptyWindow(); return; }
       if (mod && e.code === "KeyP") { e.preventDefault(); if (!$("printBtn").disabled) doPreview({ print: true }); return; }
       if (mod && e.shiftKey && e.code === "KeyZ") { e.preventDefault(); redo(); return; }
       if (mod && e.code === "KeyY") { e.preventDefault(); redo(); return; }
       if (mod && e.code === "KeyZ") { e.preventDefault(); undo(); return; }
+      if (mod && e.code === "KeyU") {
+        const a = current();
+        if (a && a.type === "text") { e.preventDefault(); pushUndo({ label: "Underline" }); a.under = !a.under; layout(); markDirty(); }
+        return;
+      }
       if (mod && (e.code === "KeyB" || e.code === "KeyI")) {
         const a = current();
         if (a && a.type === "text") {
@@ -2862,13 +3394,15 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (!rec || !pg) continue;
       try {
         const scale = 2;   // ~144 DPI-equivalent — sharp enough without ballooning file size
-        const vp = rec.page.getViewport({ scale });   // same visual/rotated space as on-screen
+        // Must include the user's rotation: the redaction rectangles below are in the
+        // on-screen (rotated) coordinate space, so the canvas has to be too.
+        const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
         const canvas = document.createElement("canvas");
         canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
         const ctx = canvas.getContext("2d");
         await rec.page.render({ canvasContext: ctx, viewport: vp }).promise;
         for (const a of S.annots) {
-          if (a.page === pageIdx && a.type === "whiteout") {
+          if (a.page === pageIdx && (a.type === "whiteout" || a.type === "cover")) {
             ctx.fillStyle = a.color;
             ctx.fillRect(a.x * scale, a.y * scale, a.w * scale, a.h * scale);
           }
@@ -2901,6 +3435,21 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const pages = pdf.getPages();
     let skippedText = 0;
 
+    // Covers first: these hide words underneath an edited text run. They must all land
+    // before any text is drawn, otherwise a cover created later would paint over an
+    // earlier edit -- which is how the overlapping old/new values happened.
+    for (const a of S.annots) {
+      if (a.type !== "cover") continue;
+      const pg = pages[a.page]; if (!pg) continue;
+      const Wu = pg.getWidth(), Hu = pg.getHeight();
+      const rot = ((pg.getRotation().angle % 360) + 360) % 360;
+      const M = mapper(rot, Wu, Hu);
+      const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
+      const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
+      const w = Math.abs(c1.x - c2.x), h = Math.abs(c1.y - c2.y);
+      pg.drawRectangle({ x, y, width: w, height: h, color: hex(rgb, a.color) });
+    }
+
       for (const a of S.annots) {
         const pg = pages[a.page]; if (!pg) continue;
         const Wu = pg.getWidth(), Hu = pg.getHeight();
@@ -2909,6 +3458,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
         if (a.type === "whiteout") {
           // handled above by the rasterization pass — drawing it again here would be redundant
+        } else if (a.type === "cover") {
+          // handled in the cover pass before this loop, so it can never sit on top of text
         } else if (a.type === "highlight") {
           const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
           const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
@@ -2935,6 +3486,23 @@ input[type=range]{accent-color:var(--brand);width:110px}
             try {
               pg.drawText(ln, { x: ox, y: oy, size: a.size, font, color: hex(rgb, a.color),
                 rotate: PDFLib.degrees(rotDeg) });
+              if (a.under && ln) {
+                // Sits just below the baseline, spanning exactly the drawn text. The
+                // along-text direction comes from the same mapper as everything else, so
+                // this stays correct on rotated pages too.
+                const w = font.widthOfTextAtSize(ln, a.size);
+                const along = subtract(M(a.x + 1, a.y + ascent), anchor);
+                const al = Math.hypot(along.x, along.y) || 1;
+                const ax = along.x / al, ay = along.y / al;
+                const drop = a.size * 0.13;                    // baseline -> underline gap
+                const sx2 = ox + ux * drop, sy2 = oy + uy * drop;
+                pg.drawLine({
+                  start: { x: sx2, y: sy2 },
+                  end: { x: sx2 + ax * w, y: sy2 + ay * w },
+                  thickness: Math.max(0.4, a.size * 0.06),
+                  color: hex(rgb, a.color),
+                });
+              }
             } catch (_) { skippedText++; }   // a character the exported font can't draw — skip, don't abort
           });
         } else if (a.type === "check") {
@@ -2950,9 +3518,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
             pg.drawLine({ start: p1, end: p2, thickness: tk, color: col, lineCap: round });
             pg.drawLine({ start: p2, end: p3, thickness: tk, color: col, lineCap: round });
           }
-        } else if (a.type === "sign") {
+        } else if (a.type === "sign" || a.type === "image") {
           const bytes = dataUrlToBytes(a.dataUrl);
-          const img = await pdf.embedPng(bytes);
+          // signatures are always PNG, but a placed photo is usually JPEG
+          const img = /^data:image\/jpe?g/i.test(a.dataUrl) ? await pdf.embedJpg(bytes) : await pdf.embedPng(bytes);
           const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
           const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y);
           const w = Math.abs(c1.x - c2.x), h = Math.abs(c1.y - c2.y);
@@ -2972,7 +3541,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("downloadMenuBtn").setAttribute("aria-expanded", "false");
   }
 
-  const outName = (flat) => S.fileName.replace(/\.pdf$/i, "") + (flat ? " (flattened).pdf" : " (edited).pdf");
+  // Suggests the original filename unchanged — the Save dialog is where you'd rename it
+  // if you actually wanted to, so silently appending "(edited)" just created cleanup work.
+  const outName = () => S.fileName;
 
   async function doDownload(opts) {
     opts = opts || {};
@@ -2980,7 +3551,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     try {
       busy(true, opts.flatten ? "Flattening your PDF…" : "Preparing your PDF…");
       const { bytes, skippedText } = await buildPdfBytes(opts);
-      const name = outName(opts.flatten);
+      const name = outName();
       const saved = await saveFile(bytes, name, "application/pdf");
       if (!saved) return;
       if (typeof saved === "string") S.filePath = saved;   // Save As sets this document's home for future Saves
@@ -2998,8 +3569,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // possible when we actually know that location (opened via the native desktop Open
   // dialog, or already Saved As once this session) — otherwise there's nothing to
   // overwrite, so this quietly becomes Save As instead of failing.
+  // Returns true only if the file actually reached disk -- the unsaved-changes prompt and
+  // the replace-document flow both depend on that, since proceeding after a failed or
+  // cancelled save would throw the work away.
   async function doSave() {
-    if (!S.bytes) return;
+    if (!S.bytes) return false;
     if (!S.filePath) return doDownload();
     try {
       busy(true, "Saving…");
@@ -3009,9 +3583,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       toast(skippedText
         ? "Saved — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
         : "Saved");
+      return true;
     } catch (err) {
       console.error(err);
       toast("Couldn't save — try Save As instead.");
+      return false;
     } finally { busy(false); }
   }
 
@@ -3337,7 +3913,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   async function ocrPage(worker, rec) {
     const scale = Math.min(3, 2200 / rec.wPts);
-    const vp = rec.page.getViewport({ scale });
+    const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
     const c = document.createElement("canvas");
     c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
     await rec.page.render({ canvasContext: c.getContext("2d", { alpha: false }), viewport: vp }).promise;
@@ -3568,8 +4144,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   // Load a PDF from raw bytes (used by the desktop wrapper when the OS opens a file).
   // Harmless in the browser; only called by the Tauri glue below.
-  window.openPdfBytes = function (name, bytes) {
-    try { loadFile(new File([bytes], name || "document.pdf", { type: "application/pdf" })); }
+  window.openPdfBytes = function (name, bytes, filePath) {
+    try { loadFile(new File([bytes], name || "document.pdf", { type: "application/pdf" }), filePath); }
     catch (e) { console.error(e); }
   };
 
@@ -3584,18 +4160,52 @@ input[type=range]{accent-color:var(--brand);width:110px}
       // exist without a JS bundler, so going through it here would silently no-op.
       const info = await T.core.invoke("check_for_update");
       if (info) {
-        if (opts.manual) toast("Downloading version " + info.version + "…");
-        await T.core.invoke("install_update");
-        // The Windows installer restarts the app automatically once installed —
-        // nothing else to do here.
+        // Ask rather than install straight away. The old behaviour downloaded and
+        // restarted the app with no warning at all, which (a) looked like nothing was
+        // happening, so a failure was indistinguishable from success, and (b) could
+        // restart over unsaved edits, which everything else in the app now guards.
+        promptForUpdate(info.version);
       } else if (opts.manual) {
         toast("You're already on the latest version.");
       }
     } catch (e) {
-      // Surfaced instead of swallowed: a silent updater failure is worse than a visible one.
+      // Always surfaced now. Previously only manual checks reported errors, so the
+      // automatic one failed completely silently — the single most likely reason for
+      // "auto-update just doesn't work" going unnoticed.
       console.error("Update check failed:", e);
-      if (opts.manual) toast("Couldn't check for updates: " + (e && e.message ? e.message : e));
+      const msg = (e && e.message ? e.message : String(e));
+      if (opts.manual) toast("Couldn't check for updates: " + msg);
+      else toast("Update check failed — see Check for updates. (" + msg + ")");
     }
+  }
+
+  // Exposed purely so the automated tests can drive the update paths; the update flow is
+  // otherwise unreachable from a test because it only wires up inside the desktop shell.
+  window.__marginalCheckForUpdates = (o) => checkForUpdates(o);
+
+  function promptForUpdate(version) {
+    const m = $("updateModal");
+    $("updateMsg").textContent = "Marginal " + version + " is available (you're on " + (appVersion || "an earlier version") + ").";
+    $("updateWhere").textContent = S.dirty
+      ? "You have unsaved changes — save them first, or they'll be lost when Marginal restarts."
+      : "Installing will close and reopen Marginal.";
+    m.hidden = false;
+    $("updateLater").onclick = () => { m.hidden = true; };
+    $("updateNow").onclick = async () => {
+      m.hidden = true;
+      try {
+        busy(true, "Installing update…");
+        await window.__TAURI__.core.invoke("install_update");
+        // On success the installer takes over and relaunches, so we normally never get
+        // here. If we do, the install didn't actually happen.
+        busy(false);
+        toast("The update didn't complete. Try downloading the latest release manually.");
+      } catch (e) {
+        busy(false);
+        console.error("Update install failed:", e);
+        toast("Couldn't install the update: " + (e && e.message ? e.message : e));
+      }
+    };
   }
 
   // ============================================================
@@ -3694,6 +4304,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   function openSplitModal() {
+    // Prefill from the document being split so the common case needs no typing.
+    $("splitBaseName").value = S.fileName.replace(/\.pdf$/i, "");
     if (!S.pages.length) return;
     splitCuts = new Set();
     $("extractInput").value = "";
@@ -3703,92 +4315,100 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
   function closeSplitModal() { $("splitModal").hidden = true; }
 
-  function renderSplit() { renderSplitRanges(); renderSplitSummary(); }
+  function renderSplit() { renderSplitPages(); renderSplitSummary(); }
 
   // The list scales with the number of PARTS you want, not the number of pages — so it
   // stays a short, glanceable list whether the document is 5 pages or 5,000.
-  function renderSplitRanges() {
-    const list = $("splitRanges");
-    list.innerHTML = "";
-    const groups = splitGroups();
+  const SCISSORS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>';
+  let splitThumbIo = null;
+
+  // Visual split picker: every page is shown as a real thumbnail, colour-coded by which
+  // part it lands in, with a clickable scissors in each gap. Cutting is direct — you
+  // click between the two pages you want separated, instead of doing arithmetic in a
+  // list of page-number boxes and hoping you got the boundary right.
+  function renderSplitPages() {
+    const host = $("splitPages");
+    if (splitThumbIo) { splitThumbIo.disconnect(); splitThumbIo = null; }
+    host.innerHTML = "";
     const total = S.pages.length;
-    groups.forEach((g, k) => {
-      const [from, to] = g;             // 0-indexed, inclusive
-      const isLast = k === groups.length - 1;
-      const row = document.createElement("div");
-      row.className = "range-row";
-      row.style.setProperty("--grp", SPLIT_COLORS[k % SPLIT_COLORS.length]);
+    const groups = splitGroups();
+    const partOf = new Array(total);
+    groups.forEach((g, k) => { for (let i = g[0]; i <= g[1]; i++) partOf[i] = k; });
 
-      const label = document.createElement("span"); label.className = "range-label"; label.textContent = "Part " + (k + 1);
-      const pages = document.createElement("span"); pages.className = "range-pages"; pages.textContent = "Pages";
-      const fromInp = document.createElement("input");
-      fromInp.className = "range-num"; fromInp.readOnly = true; fromInp.tabIndex = -1;
-      fromInp.value = String(from + 1);
-      const dash = document.createElement("span"); dash.className = "range-pages"; dash.textContent = "–";
+    splitThumbIo = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) renderSplitThumb(+e.target.dataset.idx);
+    }, { root: host, rootMargin: "400px 0px" });
 
-      let toEl;
-      if (isLast) {
-        toEl = document.createElement("span"); toEl.className = "range-end"; toEl.textContent = total + " (end)";
-      } else {
-        toEl = document.createElement("input");
-        toEl.className = "range-num"; toEl.type = "number"; toEl.min = String(from + 1); toEl.max = String(total);
-        toEl.value = String(to + 1);
-        toEl.addEventListener("change", () => { setBoundary(k, parseInt(toEl.value, 10)); });
-        toEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); toEl.blur(); } });
+    for (let i = 0; i < total; i++) {
+      const rec = S.pages[i];
+      const k = partOf[i];
+      const color = SPLIT_COLORS[k % SPLIT_COLORS.length];
+
+      const card = document.createElement("div");
+      card.className = "sp-card";
+      card.dataset.idx = i;
+      card.style.setProperty("--grp", color);
+
+      // A badge on the first page of each part, so the parts read at a glance
+      if (i === groups[k][0]) {
+        const badge = document.createElement("div");
+        badge.className = "sp-badge";
+        badge.textContent = "Part " + (k + 1);
+        card.appendChild(badge);
       }
 
-      const count = document.createElement("span"); count.className = "range-count";
-      const n = to - from + 1; count.textContent = n + (n === 1 ? " page" : " pages");
+      const canvas = document.createElement("canvas");
+      canvas.className = "sp-canvas";
+      const W = 66;
+      const aspect = (rec.hPts || 792) / (rec.wPts || 612);
+      canvas.style.width = W + "px";
+      canvas.style.height = Math.round(W * aspect) + "px";   // sized up front so nothing reflows as thumbnails fill in
 
-      const actions = document.createElement("div"); actions.className = "range-actions";
-      const splitBtn = document.createElement("button"); splitBtn.className = "rowbtn"; splitBtn.title = "Split this part in two";
-      splitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
-      splitBtn.disabled = n < 2;
-      splitBtn.onclick = () => splitRow(k);
-      actions.appendChild(splitBtn);
-      if (k > 0) {
-        const rmBtn = document.createElement("button"); rmBtn.className = "rowbtn remove"; rmBtn.title = "Merge with the part above";
-        rmBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-        rmBtn.onclick = () => mergeUp(k);
-        actions.appendChild(rmBtn);
+      const num = document.createElement("div");
+      num.className = "sp-num";
+      num.textContent = i + 1;
+
+      card.append(canvas, num);
+      rec.splitCanvas = canvas; rec.splitRendered = false;
+      host.appendChild(card);
+      splitThumbIo.observe(card);
+
+      if (i < total - 1) {
+        const cut = splitCuts.has(i);
+        const gap = document.createElement("button");
+        gap.className = "sp-gap" + (cut ? " cut" : "");
+        gap.title = cut
+          ? "Cut here — click to remove this split and rejoin these pages"
+          : "Click to split here (page " + (i + 2) + " starts a new file)";
+        gap.innerHTML = SCISSORS_SVG;
+        gap.onclick = () => {
+          if (splitCuts.has(i)) splitCuts.delete(i); else splitCuts.add(i);
+          renderSplit();
+        };
+        host.appendChild(gap);
       }
-
-      row.append(label, pages, fromInp, dash, toEl, count, actions);
-      list.appendChild(row);
-    });
+    }
   }
 
-  // Move the boundary between part k and part k+1 to end at 1-based page `newTo1`.
-  // Clamped so both neighboring parts always keep at least one page.
-  function setBoundary(k, newTo1) {
-    if (!isFinite(newTo1)) { renderSplitRanges(); return; }
-    const groups = splitGroups();
-    const g = groups[k], nxt = groups[k + 1];
-    if (!nxt) return;
-    const minB = g[0], maxB = nxt[1] - 1;
-    const clamped = Math.max(minB, Math.min(maxB, newTo1 - 1));
-    splitCuts.delete(g[1]);
-    splitCuts.add(clamped);
-    renderSplit();
-  }
-  // Bisect part k into two parts.
-  function splitRow(k) {
-    const groups = splitGroups();
-    const g = groups[k];
-    if (g[1] - g[0] < 1) return;   // a single-page part can't be split further
-    splitCuts.add(g[0] + Math.floor((g[1] - g[0]) / 2));
-    renderSplit();
-  }
-  // Merge part k into the part above it (removes the boundary before it).
-  function mergeUp(k) {
-    const groups = splitGroups();
-    if (k === 0) return;
-    splitCuts.delete(groups[k - 1][1]);
-    renderSplit();
+  function renderSplitThumb(idx) {
+    const rec = S.pages[idx];
+    if (!rec || rec.splitRendered || !rec.splitCanvas) return;
+    rec.splitRendered = true;
+    const W = 66;
+    const scale = W / (rec.wPts || 612);
+    const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
+    const canvas = rec.splitCanvas;
+    canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
+    const ctx = canvas.getContext("2d");
+    rec.page.render({ canvasContext: ctx, viewport: vp }).promise.catch(() => { rec.splitRendered = false; });
   }
 
   function renderSplitSummary() {
     const groups = splitGroups();
+    const nameBase = ($("splitBaseName").value || "").trim() || S.fileName.replace(/\.pdf$/i, "");
+    $("splitNameHint").textContent = groups.length > 1
+      ? "\u2192 " + nameBase + " part 1 (p1-" + (groups[0][1] + 1) + ").pdf, \u2026"
+      : "";
     const sum = $("splitSummary");
     sum.innerHTML = groups.length < 2
       ? "<strong>1 file</strong> — click the + on a part to split it, or use a preset above"
@@ -3829,7 +4449,9 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const { bytes } = await buildPdfBytes();
       const { PDFDocument } = PDFLib;
       const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const base = S.fileName.replace(/\.pdf$/i, "");
+      // Defaults to the document being split, but respects an edited name.
+      const typed = ($("splitBaseName").value || "").trim();
+      const base = (typed || S.fileName.replace(/\.pdf$/i, "")).replace(/\.pdf$/i, "");
       const files = [];
       for (let k = 0; k < groups.length; k++) {
         const [a, b] = groups[k];
@@ -3885,6 +4507,8 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   function openMergeModal() {
     mergeFiles = [];
+    delete $("mergeOutName").dataset.touched;
+    $("mergeOutName").value = "";
     renderMergeList();
     $("mergeModal").hidden = false;
   }
@@ -3913,6 +4537,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       row.append(num, name, size, actions);
       list.appendChild(row);
     });
+    // Track the first file's name until the person edits it themselves.
+    const outEl = $("mergeOutName");
+    if (!outEl.dataset.touched) {
+      outEl.value = mergeFiles.length ? mergeFiles[0].name.replace(/\.pdf$/i, "") : "";
+    }
     $("mergeSummary").innerHTML = mergeFiles.length
       ? "<strong>" + mergeFiles.length + (mergeFiles.length === 1 ? " file</strong>" : " files</strong>") + " will be combined, in this order"
       : "Add at least 2 files to merge";
@@ -3944,7 +4573,10 @@ input[type=range]{accent-color:var(--brand);width:110px}
         copied.forEach((pg) => out.addPage(pg));
       }
       const bytes = await out.save({ useObjectStreams: false });
-      const name = "Merged (" + mergeFiles.length + " files).pdf";
+      // Defaults to the first file in the list, but respects an edited name.
+      const typedM = ($("mergeOutName").value || "").trim().replace(/\.pdf$/i, "");
+      const fallback = mergeFiles.length ? mergeFiles[0].name.replace(/\.pdf$/i, "") : "Merged";
+      const name = (typedM || fallback) + ".pdf";
       const saved = await saveFile(bytes, name, "application/pdf");
       if (!saved) return;
       closeMergeModal();
@@ -3959,9 +4591,27 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("mergeBtn").onclick = openMergeModal;
     $("mergeClose").onclick = closeMergeModal;
     $("mergeCancel").onclick = closeMergeModal;
-    $("mergeAddBtn").onclick = () => $("mergeFileInput").click();
+    // Use the native picker on the desktop: the webview's own <input multiple> only ever
+    // returned a single file, which is why adding several at once didn't work.
+    $("mergeAddBtn").onclick = async () => {
+      const T = window.__TAURI__;
+      if (!T) { $("mergeFileInput").click(); return; }
+      try {
+        const results = await T.core.invoke("open_files_dialog");
+        if (!results || !results.length) return;
+        for (const r of results) {
+          if (!/\.pdf$/i.test(r.name)) continue;
+          mergeFiles.push({ name: r.name, bytes: _bytesOfB64(r.b64) });
+        }
+        renderMergeList();
+      } catch (e) {
+        console.error(e);
+        toast("Couldn't add those files.");
+      }
+    };
     $("mergeFileInput").onchange = (e) => { addMergeFiles(e.target.files); e.target.value = ""; };
     $("mergeGo").onclick = doMerge;
+    $("mergeOutName").addEventListener("input", () => { $("mergeOutName").dataset.touched = "1"; });
   }
 
   function wireSplitModal() {
@@ -3971,6 +4621,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     $("splitEveryApply").onclick = applyEveryN;
     $("splitEqualApply").onclick = applyEqualN;
     $("splitClear").onclick = () => { splitCuts = new Set(); renderSplit(); };
+    $("splitBaseName").addEventListener("input", renderSplitSummary);
     $("extractInput").addEventListener("input", updateExtractStatus);
     $("extractInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("extractGo").disabled) { e.preventDefault(); doExtract(); } });
     $("extractGo").onclick = doExtract;
@@ -3983,17 +4634,41 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (!r) return null;
       // Rust hands us the file as base64 (a compact string) rather than a JSON array of
       // numbers, which was ~3-4x larger and slower to parse for big PDFs.
-      if (r.b64 != null) return window.openPdfBytes(r.name, _bytesOfB64(r.b64));
-      if (r.bytes) return window.openPdfBytes(r.name, new Uint8Array(r.bytes)); // backward-compat
+      if (r.b64 != null) return window.openPdfBytes(r.name, _bytesOfB64(r.b64), r.path);
+      if (r.bytes) return window.openPdfBytes(r.name, new Uint8Array(r.bytes), r.path); // backward-compat
       return null;
     };
     // a PDF we were launched with (double-clicked in Explorer)
     try { T.core.invoke("take_opened_pdf").then(loadPayload).catch(() => {}); } catch (_) {}
     // a PDF opened while we're already running (default-handler, second launch)
     try { T.event.listen("open-pdf", (e) => loadPayload(e.payload)); } catch (_) {}
+
+    // The window's close button is intercepted on the Rust side so unsaved work can be
+    // caught here first. Nothing closes until the person has actually chosen.
+    try {
+      T.event.listen("close-requested", async () => {
+        if (S.pdf && S.dirty) {
+          const choice = await confirmUnsaved();
+          if (choice === "cancel") return;
+          if (choice === "save") { const saved = await doSave(); if (!saved) return; }
+        }
+        try { await T.core.invoke("force_close"); } catch (e) { console.error(e); }
+      });
+    } catch (_) {}
     // Delay the launch update check a few seconds: it's a network round-trip we don't want
     // competing with opening the file the user just double-clicked. Nobody's timing it.
-    setTimeout(() => checkForUpdates(), 4000);   // quiet check — only speaks up if it finds something (or errors)
+    // Read the running version so it can be shown in the shortcuts panel, and so the
+    // update prompt can say what you're upgrading *from*.
+    (async () => {
+      try {
+        if (T.app && T.app.getVersion) {
+          appVersion = await T.app.getVersion();
+          const badge = $("appVersion");
+          if (badge) badge.textContent = "v" + appVersion;
+        }
+      } catch (e) { console.error("couldn't read app version:", e); }
+    })();
+    setTimeout(() => checkForUpdates(), 4000);
     const upBtn = document.getElementById("checkUpdatesBtn");
     if (upBtn) { upBtn.hidden = false; upBtn.onclick = () => checkForUpdates({ manual: true }); }
     // "Set as default" — leads with Windows Settings (the reliable path); the old
