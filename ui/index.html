@@ -247,10 +247,14 @@ button{font-family:inherit}
   border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(20,25,45,.15)}
 
 /* context strip (color + size), shown per tool */
-.context{display:flex;align-items:center;gap:12px;min-height:40px;flex:1}
+.context{display:flex;align-items:center;gap:12px;min-height:40px;flex:1;min-width:0}
 .context.hidden{display:none}
-.ctl{display:flex;align-items:center;gap:8px}
-.ctl .lbl{font-size:11px;color:var(--text-soft);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+/* Nothing in here may wrap or shrink: these are single-line controls, and letting them
+   shrink made labels wrap one character per line and spill out of the toolbar. */
+.context > *{flex:none}
+.ctl{display:flex;align-items:center;gap:8px;flex:none}
+.ctl .lbl{font-size:11px;color:var(--text-soft);font-weight:600;text-transform:uppercase;
+  letter-spacing:.05em;white-space:nowrap;flex:none}
 .swatches{display:flex;gap:6px}
 .swatch{width:22px;height:22px;border-radius:6px;cursor:pointer;border:2px solid #fff;
   box-shadow:0 0 0 1px var(--stroke-strong);transition:transform .08s}
@@ -601,6 +605,24 @@ input[type=range]{accent-color:var(--brand);width:110px}
   background:var(--panel-soft);border:1px solid var(--stroke);border-radius:6px;
   padding:2px 7px;margin-left:8px;vertical-align:middle}
 .ver-badge:empty{display:none}
+
+/* Reclaim toolbar width before anything can be pushed off the edge: the word labels go
+   first (the swatches and the B/I/U buttons are self-explanatory). */
+@media (max-width:1400px){
+  .ctl .lbl{display:none}
+}
+
+/* Where an edit happened, shown while hovering a history entry. Purely a preview - it
+   disappears on mouse-out and changes nothing. */
+.hist-marker{position:absolute;z-index:6;pointer-events:none;border-radius:3px;
+  border:2px solid var(--brand);background:rgba(74,58,217,.14);
+  box-shadow:0 0 0 3px rgba(74,58,217,.14);animation:histPulse 1.1s ease-in-out infinite}
+@keyframes histPulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* a page-level edit with no single mark to point at: outline the page instead */
+.hist-marker.whole-page{background:rgba(74,58,217,.06);border-style:dashed}
+.hist-page{font-size:10px;color:var(--text-soft);font-family:var(--font-mono);
+  background:var(--panel-soft);border-radius:4px;padding:1px 4px;margin-left:auto;flex:none}
+.hist-item .hist-when{margin-left:6px}
 
 </style>
 </head>
@@ -1445,13 +1467,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
     const p = PALETTES[fam];
     if (!p) return;
 
-    if (S.tool === "edittext") {
-      const hint = document.createElement("span");
-      hint.className = "lbl"; hint.style.opacity = ".8"; hint.style.marginRight = "4px";
-      hint.textContent = "Click any text to edit it";
-      c.appendChild(hint);
-    }
-
     // color swatches
     const wrap = document.createElement("div"); wrap.className = "ctl";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Color";
@@ -1582,9 +1597,15 @@ input[type=range]{accent-color:var(--brand);width:110px}
       bBtn.title = "Bold"; bBtn.setAttribute("aria-pressed", String(bold));
       const iBtn = document.createElement("button"); iBtn.className = "fbtn"; iBtn.textContent = "I"; iBtn.style.fontStyle = "italic";
       iBtn.title = "Italic"; iBtn.setAttribute("aria-pressed", String(ital));
+      // Underline isn't a font variant like bold/italic (the standard PDF fonts have no
+      // underlined cut), so it's its own flag and gets drawn as a line at export.
+      const uBtn = document.createElement("button"); uBtn.className = "fbtn"; uBtn.textContent = "U";
+      uBtn.style.textDecoration = "underline";
+      uBtn.title = "Underline"; uBtn.setAttribute("aria-pressed", String(!!a.under));
       bBtn.onclick = () => { bold = !bold; bBtn.setAttribute("aria-pressed", String(bold)); setSelFont(a, bold, ital); };
       iBtn.onclick = () => { ital = !ital; iBtn.setAttribute("aria-pressed", String(ital)); setSelFont(a, bold, ital); };
-      box.append(l3, bBtn, iBtn); c.appendChild(box);
+      uBtn.onclick = () => { pushUndo({ label: "Underline" }); a.under = !a.under; uBtn.setAttribute("aria-pressed", String(!!a.under)); layout(); markDirty(); };
+      box.append(l3, bBtn, iBtn, uBtn); c.appendChild(box);
     }
   }
 
@@ -1594,11 +1615,6 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // Changes apply straight to the in-progress mark and its live DOM node — never
   // through layout(), which would rebuild the DOM and kill the typing cursor.
   function buildEditingEditor(c, a, el) {
-    const tag = document.createElement("span");
-    tag.className = "lbl"; tag.style.opacity = ".8"; tag.style.marginRight = "6px";
-    tag.textContent = "Editing text";
-    c.appendChild(tag);
-
     const pal = PALETTES.text;
     const wrap = document.createElement("div"); wrap.className = "ctl";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Color";
@@ -1634,9 +1650,18 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.style.fontFamily = fc[0]; el.style.fontWeight = fc[1]; el.style.fontStyle = fc[2];
       markDirty(); refocusEditing();
     };
+    const uBtn = document.createElement("button"); uBtn.className = "fbtn"; uBtn.textContent = "U";
+    uBtn.style.textDecoration = "underline";
+    uBtn.title = "Underline"; uBtn.setAttribute("aria-pressed", String(!!a.under));
     bBtn.onclick = () => { bold = !bold; bBtn.setAttribute("aria-pressed", String(bold)); applyStyle(); };
     iBtn.onclick = () => { ital = !ital; iBtn.setAttribute("aria-pressed", String(ital)); applyStyle(); };
-    box.append(l3, bBtn, iBtn); c.appendChild(box);
+    uBtn.onclick = () => {
+      a.under = !a.under;
+      uBtn.setAttribute("aria-pressed", String(!!a.under));
+      el.style.textDecoration = a.under ? "underline" : "none";
+      markDirty(); refocusEditing();
+    };
+    box.append(l3, bBtn, iBtn, uBtn); c.appendChild(box);
   }
 
   // After using a context-strip control, hand focus (and the cursor) back to the
@@ -2392,6 +2417,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // entry runs the right number of undos or redos to land exactly there, so you can move
   // through the history instead of guessing how many times to press Ctrl+Z.
   function closeHistory() {
+    clearHistoryPreview();
     const m = $("historyMenu");
     if (m) { m.hidden = true; $("historyBtn").setAttribute("aria-expanded", "false"); }
   }
@@ -2401,11 +2427,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
     list.innerHTML = "";
     const rows = [];
     // future (things undone), newest-first from the top
-    S.redo.forEach((e, i) => rows.push({ label: e.label, cls: "future", steps: S.redo.length - i, dir: "redo" }));
+    S.redo.forEach((e, i) => rows.push({ label: e.label, cls: "future", steps: S.redo.length - i, dir: "redo", where: e.where }));
     rows.push({ label: "Now", cls: "now", steps: 0 });
     // past, most recent first
     for (let i = S.undo.length - 1; i >= 0; i--) {
-      rows.push({ label: S.undo[i].label, cls: "", steps: S.undo.length - i, dir: "undo" });
+      rows.push({ label: S.undo[i].label, cls: "", steps: S.undo.length - i, dir: "undo", where: S.undo[i].where });
     }
     if (S.undo.length === 0 && S.redo.length === 0) {
       const empty = document.createElement("div");
@@ -2426,7 +2452,20 @@ input[type=range]{accent-color:var(--brand);width:110px}
         when.className = "hist-when";
         when.textContent = (r.dir === "undo" ? "-" : "+") + r.steps;
         b.appendChild(when);
+        // Preview on hover: scroll to where that edit happened and outline the spot, so you
+        // can see what you'd be going back to before committing to it.
+        if (r.where) {
+          b.onmouseenter = () => showHistoryPreview(r.where);
+          b.onfocus = () => showHistoryPreview(r.where);
+          b.onmouseleave = clearHistoryPreview;
+          b.onblur = clearHistoryPreview;
+          const pg = document.createElement("span");
+          pg.className = "hist-page";
+          pg.textContent = "p" + ((r.where.page || 0) + 1);
+          b.insertBefore(pg, when);
+        }
         b.onclick = async () => {
+          clearHistoryPreview();
           closeHistory();
           for (let k = 0; k < r.steps; k++) {
             if (r.dir === "undo") { if (!S.undo.length) break; await undo(); }
@@ -2438,6 +2477,30 @@ input[type=range]{accent-color:var(--brand);width:110px}
       }
       list.appendChild(b);
     });
+  }
+
+  // A non-destructive look at where an edit was: navigates to the page and draws a marker
+  // over the spot. Nothing is applied until the entry is actually clicked.
+  let _histPreviewEl = null;
+  function showHistoryPreview(where) {
+    clearHistoryPreview();
+    if (!where || where.page == null) return;
+    const rec = S.pages[where.page];
+    if (!rec) return;
+    goToPage(where.page + 1);
+    const m = document.createElement("div");
+    m.className = "hist-marker" + (where.rect ? "" : " whole-page");
+    const z = S.zoom;
+    const rect = where.rect || { x: 0, y: 0, w: rec.wPts, h: rec.hPts };
+    m.style.left = (rect.x * z) + "px";
+    m.style.top = (rect.y * z) + "px";
+    m.style.width = Math.max(8, rect.w * z) + "px";
+    m.style.height = Math.max(8, rect.h * z) + "px";
+    rec.overlay.appendChild(m);
+    _histPreviewEl = m;
+  }
+  function clearHistoryPreview() {
+    if (_histPreviewEl) { _histPreviewEl.remove(); _histPreviewEl = null; }
   }
 
   function toggleHistory() {
@@ -2852,6 +2915,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       el.style.fontSize = a.size * z + "px"; el.style.color = a.color; el.textContent = a.text;
       const fc = cssFont(a.font);
       el.style.fontFamily = fc[0]; el.style.fontWeight = fc[1]; el.style.fontStyle = fc[2];
+      el.style.textDecoration = a.under ? "underline" : "none";
       el.ondblclick = () => enterEdit(el, a);
     } else if (a.type === "whiteout" || a.type === "cover" || a.type === "highlight") {
       el = div("an " + a.type);
@@ -3105,7 +3169,16 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // panel can show what each step actually was rather than just a count.
   function pushUndo(opts) {
     opts = opts || {};
-    S.undo.push({ state: captureState(!!opts.structural), label: opts.label || "Edit" });
+    // Remember where the edit happened, so hovering a history entry can show you the spot
+    // before you commit to jumping back to it.
+    const sel = current();
+    const where = { page: opts.page != null ? opts.page : currentPageIdx() };
+    if (sel && sel.page != null) {
+      where.page = sel.page;
+      if (sel.w != null) where.rect = { x: sel.x, y: sel.y, w: sel.w, h: sel.h };
+      else if (sel.x != null) where.rect = { x: sel.x, y: sel.y, w: Math.max(20, (sel.size || 10) * 4), h: (sel.size || 10) * 1.3 };
+    }
+    S.undo.push({ state: captureState(!!opts.structural), label: opts.label || "Edit", where: where });
     if (S.undo.length > 60) S.undo.shift();
     S.redo = [];   // a fresh action invalidates whatever could have been redone — standard undo/redo behavior
     closeHistory();
@@ -3147,7 +3220,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       // *leaving* also needs its bytes captured — otherwise redo couldn't bring it back.
       const top = S.undo[S.undo.length - 1];
       const undoingStructural = JSON.parse(top.state).bytes != null;
-      S.redo.push({ state: captureState(undoingStructural), label: top.label });
+      S.redo.push({ state: captureState(undoingStructural), label: top.label, where: top.where });
       if (S.redo.length > 60) S.redo.shift();
       await applySnapshot(S.undo.pop().state);
     } catch (e) {
@@ -3165,7 +3238,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
       busy(true);
       const topR = S.redo[S.redo.length - 1];
       const redoingStructural = JSON.parse(topR.state).bytes != null;
-      S.undo.push({ state: captureState(redoingStructural), label: topR.label });
+      S.undo.push({ state: captureState(redoingStructural), label: topR.label, where: topR.where });
       if (S.undo.length > 60) S.undo.shift();
       await applySnapshot(S.redo.pop().state);
     } catch (e) {
@@ -3212,6 +3285,11 @@ input[type=range]{accent-color:var(--brand);width:110px}
       if (mod && e.shiftKey && e.code === "KeyZ") { e.preventDefault(); redo(); return; }
       if (mod && e.code === "KeyY") { e.preventDefault(); redo(); return; }
       if (mod && e.code === "KeyZ") { e.preventDefault(); undo(); return; }
+      if (mod && e.code === "KeyU") {
+        const a = current();
+        if (a && a.type === "text") { e.preventDefault(); pushUndo({ label: "Underline" }); a.under = !a.under; layout(); markDirty(); }
+        return;
+      }
       if (mod && (e.code === "KeyB" || e.code === "KeyI")) {
         const a = current();
         if (a && a.type === "text") {
@@ -3249,6 +3327,91 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // Removes every form-field widget annotation from every page, and drops the AcroForm
   // entry entirely — a guaranteed "no interactive fields remain" pass that works even on
   // PDFs whose widgets are missing the page back-reference pdf-lib's flatten() needs.
+  // ---- Flattening runs in a Web Worker, not on the main thread ----
+  // form.flatten() has to render an appearance for every form field (fonts, positions,
+  // values) — for documents with dozens of fields that's genuinely slow, and because it's
+  // one long synchronous call with no await points in it, it freezes the whole window for
+  // its entire duration (Windows then marks it "Not Responding", which is exactly what was
+  // reported). pdf-lib has no DOM dependency at all — verified directly against the actual
+  // library before relying on this — so the fix is to do this specific step somewhere that
+  // freezing doesn't matter: a worker thread. Everything else in buildPdfBytes() is
+  // unaffected and still runs on the main thread as before.
+  let _flattenWorker = null;
+  function flattenWorkerSource() {
+    let loadLib;
+    if (LIBS.mode === "url") {
+      // Resolved to an absolute URL first: a blob: worker has no meaningful base of its
+      // own to resolve a relative path against.
+      const abs = new URL(LIBS.pdflib, location.href).href;
+      loadLib = "importScripts(" + JSON.stringify(abs) + ");";
+    } else {
+      // inline mode: we already have pdf-lib's source as base64 in memory — decode and
+      // eval it inside the worker the same way the main thread does for itself.
+      loadLib = "(function(){var s=atob(" + JSON.stringify(LIBS.pdflib || "") + ");"
+        + "var b=new Uint8Array(s.length);for(var i=0;i<s.length;i++)b[i]=s.charCodeAt(i);"
+        + "(0,eval)(new TextDecoder('utf-8').decode(b));})();";
+    }
+    return loadLib + '\n' + [
+      "self.onmessage = async function(e) {",
+      "  try {",
+      "    var PDFLib = self.PDFLib;",
+      "    var PDFDocument = PDFLib.PDFDocument, PDFName = PDFLib.PDFName, PDFArray = PDFLib.PDFArray;",
+      "    var pdf = await PDFDocument.load(e.data.bytes, { ignoreEncryption: true });",
+      "    try { pdf.getForm().flatten(); } catch (err) { /* fall through to direct removal below */ }",
+      // Same logic as stripFormFields() on the main thread, including the fix for the
+      // dangling references form.flatten() itself is known to leave behind.
+      "    var pages = pdf.getPages();",
+      "    for (var p = 0; p < pages.length; p++) {",
+      "      var page = pages[p];",
+      "      var annotsRef = page.node.get(PDFName.of('Annots'));",
+      "      if (!annotsRef) continue;",
+      "      var annots = pdf.context.lookupMaybe(annotsRef, PDFArray) || (annotsRef instanceof PDFArray ? annotsRef : null);",
+      "      if (!annots) continue;",
+      "      var kept = [];",
+      "      for (var i = 0; i < annots.size(); i++) {",
+      "        var ref = annots.get(i);",
+      "        var dict = pdf.context.lookup(ref);",
+      "        if (!dict) continue;",
+      "        var subtype = dict.get && dict.get(PDFName.of('Subtype'));",
+      "        if (!(subtype && subtype.encodedName === '/Widget')) kept.push(ref);",
+      "      }",
+      "      if (kept.length !== annots.size()) page.node.set(PDFName.of('Annots'), pdf.context.obj(kept));",
+      "    }",
+      "    pdf.catalog.delete(PDFName.of('AcroForm'));",
+      "    var out = await pdf.save({ useObjectStreams: false });",
+      "    self.postMessage({ ok: true, bytes: out }, [out.buffer]);",
+      "  } catch (err) {",
+      "    self.postMessage({ ok: false, error: String(err && err.message || err) });",
+      "  }",
+      "};",
+    ].join("\n");
+  }
+
+  function flattenInWorker(bytes) {
+    return new Promise((resolve, reject) => {
+      if (!window.Worker) { reject(new Error("Workers unavailable")); return; }
+      if (!_flattenWorker) {
+        const blob = new Blob([flattenWorkerSource()], { type: "application/javascript" });
+        _flattenWorker = new Worker(URL.createObjectURL(blob));
+      }
+      const w = _flattenWorker;
+      const timeout = setTimeout(() => { cleanup(); reject(new Error("timed out")); }, 60000);
+      const onMsg = (e) => {
+        cleanup();
+        if (e.data && e.data.ok) resolve(new Uint8Array(e.data.bytes));
+        else reject(new Error((e.data && e.data.error) || "worker failed"));
+      };
+      const onErr = (e) => { cleanup(); reject(new Error(e.message || "worker error")); };
+      function cleanup() { clearTimeout(timeout); w.removeEventListener("message", onMsg); w.removeEventListener("error", onErr); }
+      w.addEventListener("message", onMsg);
+      w.addEventListener("error", onErr);
+      // A copy, not a transfer: S.bytes is the document's own in-memory copy and stays
+      // needed on the main thread regardless of what happens in the worker.
+      const copy = bytes.slice();
+      w.postMessage({ bytes: copy.buffer }, [copy.buffer]);
+    });
+  }
+
   function stripFormFields(pdf) {
     const { PDFName, PDFArray } = PDFLib;
     for (const page of pdf.getPages()) {
@@ -3260,7 +3423,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
       for (let i = 0; i < annots.size(); i++) {
         const ref = annots.get(i);
         const dict = pdf.context.lookup(ref);
-        const subtype = dict && dict.get && dict.get(PDFName.of("Subtype"));
+        // form.flatten() itself is known to leave dangling references behind (it deletes
+        // the underlying widget object but doesn't clean up the page's Annots entry
+        // pointing to it) - verified directly against real pdf-lib output. An entry that
+        // can't be resolved at all is never something worth keeping, so it's removed here
+        // right alongside genuine /Widget annotations.
+        if (!dict) continue;
+        const subtype = dict.get && dict.get(PDFName.of("Subtype"));
         if (!(subtype && subtype.encodedName === "/Widget")) kept.push(ref);
       }
       if (kept.length !== annots.size()) page.node.set(PDFName.of("Annots"), pdf.context.obj(kept));
@@ -3272,7 +3441,26 @@ input[type=range]{accent-color:var(--brand);width:110px}
     opts = opts || {};
     await ensurePdflib();                  // export library (loaded lazily, not at startup)
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
-    const pdf = await PDFDocument.load(S.bytes, { ignoreEncryption: true });
+    // "Download flattened": remove the PDF's interactive form fields (fillable boxes,
+    // checkboxes, dropdowns) so nothing stays editable, baking in each field's real value
+    // first when the PDF is well-formed. This runs in a worker (see flattenInWorker above)
+    // specifically because form.flatten() is one long synchronous call with no natural
+    // pause in it — for a document with many fields that's genuinely slow, and doing it on
+    // the main thread freezes the whole window for the duration (that's the "Not
+    // Responding" title bar this was reported against). If the worker can't run for any
+    // reason, this still flattens correctly on the main thread — just without the
+    // responsiveness fix — rather than silently skipping it.
+    let sourceBytes = S.bytes;
+    let flattenedByWorker = false;
+    if (opts.flatten) {
+      try {
+        sourceBytes = await flattenInWorker(S.bytes);
+        flattenedByWorker = true;
+      } catch (e) {
+        console.error("worker-based flatten unavailable, falling back to the main thread:", e && e.message);
+      }
+    }
+    const pdf = await PDFDocument.load(sourceBytes, { ignoreEncryption: true });
     // Apply any page rotations made in the editor. Must run before the redaction pass
     // and the per-annotation loop below — both read the page's rotation live (via
     // pg.getRotation()) to correctly place content, so this needs to already reflect
@@ -3283,17 +3471,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
       const total = ((pg.getRotation().angle + rec.userRot) % 360 + 360) % 360;
       pg.setRotation(PDFLib.degrees(total));
     });
-    // "Download flattened": bake the PDF's interactive form fields (fillable boxes,
-    // checkboxes, dropdowns) into static page content so nothing stays editable.
-    // Done before our own marks so those still sit on top.
-    // "Download flattened": remove the PDF's interactive form fields (fillable boxes,
-    // checkboxes, dropdowns) so nothing stays editable. Tries pdf-lib's own flatten()
-    // first (it correctly bakes in each field's real value when the PDF is well-formed),
-    // then ALWAYS runs a direct removal pass afterward as a guarantee — some third-party
-    // form-filling tools produce widgets missing their page back-reference, which makes
-    // pdf-lib's flatten() throw on every field with no visible error. The direct pass
-    // doesn't depend on that reference, so it removes the fields either way.
-    if (opts.flatten) {
+    if (opts.flatten && !flattenedByWorker) {
+      // Same steps the worker would have done, run here instead. Tries pdf-lib's own
+      // flatten() first, then always runs the direct removal pass afterward as a
+      // guarantee — some third-party form-filling tools produce widgets missing their
+      // page back-reference, which makes flatten() throw on every field with no visible
+      // error, and it's also known to leave dangling references behind even when it
+      // succeeds. The direct pass catches both cases.
       let form = null;
       try { form = pdf.getForm(); } catch (e) { console.error("getForm() failed:", e && e.message); }
       if (form) {
@@ -3408,6 +3592,23 @@ input[type=range]{accent-color:var(--brand);width:110px}
             try {
               pg.drawText(ln, { x: ox, y: oy, size: a.size, font, color: hex(rgb, a.color),
                 rotate: PDFLib.degrees(rotDeg) });
+              if (a.under && ln) {
+                // Sits just below the baseline, spanning exactly the drawn text. The
+                // along-text direction comes from the same mapper as everything else, so
+                // this stays correct on rotated pages too.
+                const w = font.widthOfTextAtSize(ln, a.size);
+                const along = subtract(M(a.x + 1, a.y + ascent), anchor);
+                const al = Math.hypot(along.x, along.y) || 1;
+                const ax = along.x / al, ay = along.y / al;
+                const drop = a.size * 0.13;                    // baseline -> underline gap
+                const sx2 = ox + ux * drop, sy2 = oy + uy * drop;
+                pg.drawLine({
+                  start: { x: sx2, y: sy2 },
+                  end: { x: sx2 + ax * w, y: sy2 + ay * w },
+                  thickness: Math.max(0.4, a.size * 0.06),
+                  color: hex(rgb, a.color),
+                });
+              }
             } catch (_) { skippedText++; }   // a character the exported font can't draw — skip, don't abort
           });
         } else if (a.type === "check") {
@@ -4087,6 +4288,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   // Exposed purely so the automated tests can drive the update paths; the update flow is
   // otherwise unreachable from a test because it only wires up inside the desktop shell.
   window.__marginalCheckForUpdates = (o) => checkForUpdates(o);
+  window.__marginalBuildPdfBytes = (o) => buildPdfBytes(o);   // test hook only
 
   function promptForUpdate(version) {
     const m = $("updateModal");
