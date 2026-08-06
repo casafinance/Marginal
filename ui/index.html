@@ -595,6 +595,13 @@ input[type=range]{accent-color:var(--brand);width:110px}
   .docbar-path{display:none}
 }
 
+/* Running version, shown next to the shortcuts heading: without it there's no way to tell
+   whether an update actually landed. */
+.ver-badge{font-size:11px;font-weight:600;color:var(--text-soft);font-family:var(--font-mono);
+  background:var(--panel-soft);border:1px solid var(--stroke);border-radius:6px;
+  padding:2px 7px;margin-left:8px;vertical-align:middle}
+.ver-badge:empty{display:none}
+
 </style>
 </head>
 <body>
@@ -815,6 +822,23 @@ input[type=range]{accent-color:var(--brand);width:110px}
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy"><div class="card"><div class="spinner"></div><div class="msg" id="busyMsg"></div></div></div>
 
+<div class="modal" id="updateModal" hidden>
+  <div class="sheet unsaved-sheet">
+    <div class="sheet-head">
+      <h2>Update available</h2>
+    </div>
+    <div class="unsaved-body">
+      <p id="updateMsg">A newer version of Marginal is available.</p>
+      <p class="unsaved-where" id="updateWhere">Installing will close and reopen Marginal.</p>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" id="updateLater">Not now</button>
+      <div class="spacer"></div>
+      <button class="btn primary" id="updateNow">Install and restart</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="unsavedModal" hidden>
   <div class="sheet unsaved-sheet">
     <div class="sheet-head">
@@ -836,7 +860,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 <div class="modal" id="shortcutsModal" hidden>
   <div class="sheet shortcuts-sheet">
     <div class="sheet-head">
-      <h2>Keyboard shortcuts</h2>
+      <h2>Keyboard shortcuts <span class="ver-badge" id="appVersion"></span></h2>
       <button class="iconbtn" id="shortcutsClose" title="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
@@ -1272,6 +1296,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   }
 
   let uid = 1;
+  let appVersion = "";   // the running app version, once Tauri reports it
   const nid = () => "a" + uid++;
 
   // ============================================================
@@ -3159,7 +3184,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
     window.addEventListener("keydown", (e) => {
       const ae = document.activeElement;
       const typing = ae && (ae.isContentEditable || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden || !$("shortcutsModal").hidden;
+      const modalOpen = !$("signModal").hidden || !$("previewModal").hidden || !$("defaultAppModal").hidden || !$("splitModal").hidden || !$("mergeModal").hidden || !$("shortcutsModal").hidden || !$("updateModal").hidden || !$("unsavedModal").hidden;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyF") {
         e.preventDefault();
@@ -3171,6 +3196,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
         if (!$("splitModal").hidden) { closeSplitModal(); return; }
         if (!$("mergeModal").hidden) { closeMergeModal(); return; }
         if (!$("shortcutsModal").hidden) { $("shortcutsModal").hidden = true; return; }
+        if (!$("updateModal").hidden) { $("updateModal").hidden = true; return; }
         if (!$("previewModal").hidden) { closePreview(); return; }
         if (!$("defaultAppModal").hidden) { $("defaultAppModal").hidden = true; return; }
         if (!$("searchBar").hidden) { closeSearch(); return; }
@@ -4039,18 +4065,52 @@ input[type=range]{accent-color:var(--brand);width:110px}
       // exist without a JS bundler, so going through it here would silently no-op.
       const info = await T.core.invoke("check_for_update");
       if (info) {
-        if (opts.manual) toast("Downloading version " + info.version + "…");
-        await T.core.invoke("install_update");
-        // The Windows installer restarts the app automatically once installed —
-        // nothing else to do here.
+        // Ask rather than install straight away. The old behaviour downloaded and
+        // restarted the app with no warning at all, which (a) looked like nothing was
+        // happening, so a failure was indistinguishable from success, and (b) could
+        // restart over unsaved edits, which everything else in the app now guards.
+        promptForUpdate(info.version);
       } else if (opts.manual) {
         toast("You're already on the latest version.");
       }
     } catch (e) {
-      // Surfaced instead of swallowed: a silent updater failure is worse than a visible one.
+      // Always surfaced now. Previously only manual checks reported errors, so the
+      // automatic one failed completely silently — the single most likely reason for
+      // "auto-update just doesn't work" going unnoticed.
       console.error("Update check failed:", e);
-      if (opts.manual) toast("Couldn't check for updates: " + (e && e.message ? e.message : e));
+      const msg = (e && e.message ? e.message : String(e));
+      if (opts.manual) toast("Couldn't check for updates: " + msg);
+      else toast("Update check failed — see Check for updates. (" + msg + ")");
     }
+  }
+
+  // Exposed purely so the automated tests can drive the update paths; the update flow is
+  // otherwise unreachable from a test because it only wires up inside the desktop shell.
+  window.__marginalCheckForUpdates = (o) => checkForUpdates(o);
+
+  function promptForUpdate(version) {
+    const m = $("updateModal");
+    $("updateMsg").textContent = "Marginal " + version + " is available (you're on " + (appVersion || "an earlier version") + ").";
+    $("updateWhere").textContent = S.dirty
+      ? "You have unsaved changes — save them first, or they'll be lost when Marginal restarts."
+      : "Installing will close and reopen Marginal.";
+    m.hidden = false;
+    $("updateLater").onclick = () => { m.hidden = true; };
+    $("updateNow").onclick = async () => {
+      m.hidden = true;
+      try {
+        busy(true, "Installing update…");
+        await window.__TAURI__.core.invoke("install_update");
+        // On success the installer takes over and relaunches, so we normally never get
+        // here. If we do, the install didn't actually happen.
+        busy(false);
+        toast("The update didn't complete. Try downloading the latest release manually.");
+      } catch (e) {
+        busy(false);
+        console.error("Update install failed:", e);
+        toast("Couldn't install the update: " + (e && e.message ? e.message : e));
+      }
+    };
   }
 
   // ============================================================
@@ -4502,7 +4562,18 @@ input[type=range]{accent-color:var(--brand);width:110px}
     } catch (_) {}
     // Delay the launch update check a few seconds: it's a network round-trip we don't want
     // competing with opening the file the user just double-clicked. Nobody's timing it.
-    setTimeout(() => checkForUpdates(), 4000);   // quiet check — only speaks up if it finds something (or errors)
+    // Read the running version so it can be shown in the shortcuts panel, and so the
+    // update prompt can say what you're upgrading *from*.
+    (async () => {
+      try {
+        if (T.app && T.app.getVersion) {
+          appVersion = await T.app.getVersion();
+          const badge = $("appVersion");
+          if (badge) badge.textContent = "v" + appVersion;
+        }
+      } catch (e) { console.error("couldn't read app version:", e); }
+    })();
+    setTimeout(() => checkForUpdates(), 4000);
     const upBtn = document.getElementById("checkUpdatesBtn");
     if (upBtn) { upBtn.hidden = false; upBtn.onclick = () => checkForUpdates({ manual: true }); }
     // "Set as default" — leads with Windows Settings (the reliable path); the old
