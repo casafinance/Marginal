@@ -39,6 +39,32 @@ for p in sorted(cap_plugins - cargo_plugins):
 for p in sorted(cargo_plugins - lib_plugins):
     warnings.append(f"tauri-plugin-{p} is a dependency but never referenced in lib.rs")
 
+# Commands whose bodies block must be declared async, otherwise Tauri runs them on the
+# main thread. A parented native modal needs the parent's message loop pumping to appear,
+# so blocking the main thread can deadlock it -- and whether it does is timing dependent,
+# which makes it behave differently from machine to machine.
+BLOCKING_MARKERS = ("blocking_save_file", "blocking_pick_file", "blocking_pick_files",
+                    "run_with_timeout", "convert_docx_bytes", "read_openable_file")
+for m in re.finditer(r"#\[tauri::command\]\s*\n\s*(async\s+)?fn\s+(\w+)", lib):
+    is_async, fname = m.group(1), m.group(2)
+    body_start = lib.index("{", m.end())
+    depth, i = 0, body_start
+    while i < len(lib):
+        if lib[i] == "{":
+            depth += 1
+        elif lib[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    body = lib[body_start:i]
+    hits = [mk for mk in BLOCKING_MARKERS if mk in body]
+    if hits and not is_async:
+        problems.append(
+            "command '%s' blocks (%s) but is not async, so it runs on the main thread"
+            % (fname, ", ".join(hits))
+        )
+
 handler = re.search(r"generate_handler!\[(.*?)\]", lib, re.S)
 registered = {c.strip() for c in handler.group(1).split(",") if c.strip()} if handler else set()
 invoked = set(re.findall(r'invoke\(\s*"([a-z_]+)"', ui))
