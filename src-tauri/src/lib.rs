@@ -97,13 +97,20 @@ fn read_openable_file(path: &str) -> Option<serde_json::Value> {
 }
 
 /// Frontend calls this once on startup to get the file we were opened with (if any).
+/// Returns Result, not a bare Option: an async command that borrows State (as this one
+/// does) is required to by Tauri's command macro, since the generated future needs a
+/// 'static bound that an `Option`-returning signature can't satisfy here.
 #[tauri::command]
-async fn take_opened_pdf(state: tauri::State<'_, OpenedFile>) -> Option<serde_json::Value> {
+async fn take_opened_pdf(state: tauri::State<'_, OpenedFile>) -> Result<Option<serde_json::Value>, String> {
     // Async on purpose: for a .docx this runs the Word conversion, which waits on
     // PowerShell for up to 45s. On the main thread that would freeze the window at
     // startup, exactly when the person is waiting to see their document.
-    let path = { state.0.lock().ok()?.take()? };
-    read_openable_file(&path)
+    let path = {
+        let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+        guard.take()
+    };
+    let Some(path) = path else { return Ok(None); };
+    Ok(read_openable_file(&path))
 }
 
 /// Opens Windows' own "How do you want to open this file?" dialog, scoped to .pdf.
