@@ -3561,7 +3561,22 @@ details.extract-block .extract-row{margin-top:9px}
     // responsiveness fix — rather than silently skipping it.
     let sourceBytes = S.bytes;
     let flattenedByWorker = false;
-    if (opts.flatten) {
+    // Covering or redacting anything forces the form to be flattened first, even on a
+    // normal save.
+    //
+    // The reason: a PDF viewer paints a form field's appearance ON TOP of page content.
+    // Draw a cover over a field and the field simply repaints itself above it; rasterise
+    // the entire page for a redaction and the field STILL repaints, so content you
+    // deliberately removed reappears in the saved file. Positioning can't fix it - the
+    // field's appearance box doesn't have to line up with the text you're covering, which
+    // is why the old value could resurface slightly offset from the replacement.
+    //
+    // Flattening first turns every field value into ordinary page content, so by the time
+    // the cover or redaction is applied there is nothing left that can repaint over it.
+    // Anything you add in Marginal is drawn afterwards and is unaffected.
+    const hasCoverOrRedaction = S.annots.some((a) => a.type === "cover" || a.type === "whiteout");
+    const needsFlatten = !!opts.flatten || hasCoverOrRedaction;
+    if (needsFlatten) {
       try {
         sourceBytes = await flattenInWorker(S.bytes);
         flattenedByWorker = true;
@@ -3580,7 +3595,7 @@ details.extract-block .extract-row{margin-top:9px}
       const total = ((pg.getRotation().angle + rec.userRot) % 360 + 360) % 360;
       pg.setRotation(PDFLib.degrees(total));
     });
-    if (opts.flatten && !flattenedByWorker) {
+    if (needsFlatten && !flattenedByWorker) {
       // Same steps the worker would have done, run here instead. Tries pdf-lib's own
       // flatten() first, then always runs the direct removal pass afterward as a
       // guarantee — some third-party form-filling tools produce widgets missing their
@@ -3665,6 +3680,63 @@ details.extract-block .extract-row{margin-top:9px}
       pg.drawRectangle({ x, y, width: w, height: h, color: hex(rgb, a.color) });
     }
 
+    // Remove any form field sitting under a cover or a redaction.
+    //
+    // This matters because a PDF viewer paints a widget's appearance stream ON TOP of the
+    // page content, so everything above — the cover rectangle, and even a full redaction
+    // that genuinely rasterised the page — gets painted over by the field. The original
+    // value then reappears in the saved file even though the page content no longer
+    // contains it, which looks like the edit silently duplicated or failed. For a
+    // redaction it's worse than cosmetic: the content you removed is still readable, and
+    // still sitting in the file as the field's value.
+    try {
+      const { PDFName, PDFArray } = PDFLib;
+      const boxesByPage = new Map();
+      for (const a of S.annots) {
+        if (a.type !== "cover" && a.type !== "whiteout") continue;
+        const pg = pages[a.page]; if (!pg) continue;
+        const rot = ((pg.getRotation().angle % 360) + 360) % 360;
+        const M = mapper(rot, pg.getWidth(), pg.getHeight());
+        const c1 = M(a.x, a.y), c2 = M(a.x + a.w, a.y + a.h);
+        const box = { x0: Math.min(c1.x, c2.x), y0: Math.min(c1.y, c2.y),
+                      x1: Math.max(c1.x, c2.x), y1: Math.max(c1.y, c2.y) };
+        if (!boxesByPage.has(a.page)) boxesByPage.set(a.page, []);
+        boxesByPage.get(a.page).push(box);
+      }
+      for (const [pageIdx, boxes] of boxesByPage) {
+        const pg = pages[pageIdx]; if (!pg) continue;
+        const annotsRef = pg.node.get(PDFName.of("Annots"));
+        if (!annotsRef) continue;
+        const raw = pdf.context.lookupMaybe(annotsRef, PDFArray) || (annotsRef instanceof PDFArray ? annotsRef : null);
+        if (!raw) continue;
+        // Tolerate either shape: a PDFArray, or a plain array left by an earlier pass.
+        const annots = typeof raw.size === "function"
+          ? raw
+          : (Array.isArray(raw) ? { size: () => raw.length, get: (i) => raw[i] } : null);
+        if (!annots) continue;
+        const kept = [];
+        for (let i = 0; i < annots.size(); i++) {
+          const ref = annots.get(i);
+          const dict = pdf.context.lookup(ref);
+          if (!dict) continue;                       // dangling entry — never worth keeping
+          const subtype = dict.get && dict.get(PDFName.of("Subtype"));
+          if (!(subtype && subtype.encodedName === "/Widget")) { kept.push(ref); continue; }
+          const rectArr = dict.get && dict.get(PDFName.of("Rect"));
+          const r = rectArr && rectArr.asRectangle ? rectArr.asRectangle() : null;
+          let overlaps = false;
+          if (r) {
+            const wx0 = Math.min(r.x, r.x + r.width), wx1 = Math.max(r.x, r.x + r.width);
+            const wy0 = Math.min(r.y, r.y + r.height), wy1 = Math.max(r.y, r.y + r.height);
+            overlaps = boxes.some((b) => wx0 < b.x1 && wx1 > b.x0 && wy0 < b.y1 && wy1 > b.y0);
+          }
+          if (!overlaps) kept.push(ref);
+        }
+        if (kept.length !== annots.size()) pg.node.set(PDFName.of("Annots"), pdf.context.obj(kept));
+      }
+    } catch (e) {
+      console.error("couldn't strip covered form fields:", e && e.message);
+    }
+
       for (const a of S.annots) {
         const pg = pages[a.page]; if (!pg) continue;
         const Wu = pg.getWidth(), Hu = pg.getHeight();
@@ -3743,7 +3815,10 @@ details.extract-block .extract-row{margin-top:9px}
           pg.drawImage(img, { x, y, width: w, height: h });
         }
       }
-      return { bytes: await pdf.save({ useObjectStreams: false }), skippedText };
+      // flattenedForm is reported so the person can be told their fillable fields became
+      // permanent — a real side effect of covering or redacting, not something to hide.
+      return { bytes: await pdf.save({ useObjectStreams: false }), skippedText,
+               flattenedForm: hasCoverOrRedaction && !opts.flatten };
   }
 
   function toggleDownloadMenu() {
@@ -3765,7 +3840,7 @@ details.extract-block .extract-row{margin-top:9px}
     if (!S.bytes) return;
     try {
       busy(true, opts.flatten ? "Flattening your PDF…" : "Preparing your PDF…");
-      const { bytes, skippedText } = await buildPdfBytes(opts);
+      const { bytes, skippedText, flattenedForm } = await buildPdfBytes(opts);
       const name = outName();
       const saved = await saveFile(bytes, name, "application/pdf");
       if (!saved) return;
@@ -3773,7 +3848,7 @@ details.extract-block .extract-row{margin-top:9px}
       S.dirty = false; renderTabs();
       toast(skippedText
         ? "Saved " + name + " — " + skippedText + " mark" + (skippedText > 1 ? "s" : "") + " couldn't be reproduced and were skipped."
-        : "Saved " + name);
+        : "Saved " + name + (flattenedForm ? " — the form's fillable fields are now permanent, so nothing can paint over your edits." : ""));
     } catch (err) {
       console.error(err);
       toast("Something went wrong while saving.");
