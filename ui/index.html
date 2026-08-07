@@ -3680,7 +3680,7 @@ details.extract-block .extract-row{margin-top:9px}
       pg.drawRectangle({ x, y, width: w, height: h, color: hex(rgb, a.color) });
     }
 
-    // Remove any form field sitting under a cover or a redaction.
+    // Remove anything that would paint on top of a cover or a redaction.
     //
     // This matters because a PDF viewer paints a widget's appearance stream ON TOP of the
     // page content, so everything above — the cover rectangle, and even a full redaction
@@ -3719,8 +3719,15 @@ details.extract-block .extract-row{margin-top:9px}
           const ref = annots.get(i);
           const dict = pdf.context.lookup(ref);
           if (!dict) continue;                       // dangling entry — never worth keeping
+          // Any annotation that paints something must go, not just form fields. Other PDF
+          // editors write their edits as annotations rather than into the page content
+          // (/FreeText boxes, /Square blackout rectangles, /StrikeOut marks, stamps), and
+          // a viewer paints ALL of those on top of page content — so someone else's
+          // earlier edit reappears above our cover or redaction. /Link and /Popup are the
+          // exceptions: they draw nothing on their own.
           const subtype = dict.get && dict.get(PDFName.of("Subtype"));
-          if (!(subtype && subtype.encodedName === "/Widget")) { kept.push(ref); continue; }
+          const st = subtype && subtype.encodedName;
+          if (!st || st === "/Link" || st === "/Popup") { kept.push(ref); continue; }
           const rectArr = dict.get && dict.get(PDFName.of("Rect"));
           const r = rectArr && rectArr.asRectangle ? rectArr.asRectangle() : null;
           let overlaps = false;
