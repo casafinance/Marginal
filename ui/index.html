@@ -10,6 +10,7 @@
 <link rel="preload" href="vendor/pdf.worker.min.js" as="script">
 <style>
 
+
 /* ============================================================
    Marginal — a browser PDF editor
    Identity: "digital stationery". Tools behave like real desk
@@ -131,7 +132,7 @@ button{font-family:inherit}
 .menu-sep{height:1px;background:var(--stroke);margin:5px 2px}
 
 /* ---------- Split modal ---------- */
-.split-sheet{width:min(760px,96vw);max-height:90vh;display:flex;flex-direction:column}
+.split-sheet{width:min(1080px,97vw);max-height:92vh;display:flex;flex-direction:column}
 .split-body{padding:16px 22px;overflow:auto}
 .split-hint{margin:0 0 14px;color:var(--text-soft);font-size:13px;line-height:1.5}
 .split-presets{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px;
@@ -145,31 +146,56 @@ button{font-family:inherit}
 .split-grid{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;user-select:none}
 .range-list{display:flex;flex-direction:column;gap:8px;max-height:40vh;overflow:auto;padding-right:2px}
 
-/* ---------- Visual split picker ---------- */
-.split-pages{display:flex;flex-wrap:wrap;align-items:flex-start;gap:0;
-  max-height:44vh;overflow-y:auto;padding:14px 4px 18px;
-  border:1px solid var(--stroke);border-radius:10px;background:var(--panel-soft)}
-.sp-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding:7px 5px 5px;border-radius:7px;background:#fff;
-  border-top:3px solid var(--grp);box-shadow:0 1px 3px rgba(20,25,45,.14)}
-.sp-canvas{display:block;background:#fff;border-radius:2px}
-.sp-num{font-size:10.5px;color:var(--text-soft);font-family:var(--font-mono);line-height:1}
-.sp-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);
-  font-size:9.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap;
-  background:var(--grp);color:#fff;border-radius:4px;padding:1px 5px;z-index:1}
-/* the clickable gap between two pages — subtle until you hover, obvious once cut */
-.sp-gap{align-self:stretch;width:26px;flex:none;margin:0;border:none;background:transparent;
-  display:grid;place-items:center;cursor:pointer;border-radius:6px;color:transparent;
-  position:relative}
-.sp-gap::before{content:"";position:absolute;top:10px;bottom:10px;width:2px;
-  background:var(--stroke);border-radius:2px}
-.sp-gap:hover{color:var(--brand)}
-.sp-gap:hover::before{background:var(--brand-weak)}
-.sp-gap svg{width:14px;height:14px;position:relative;z-index:1}
-.sp-gap.cut{color:var(--brand)}
-.sp-gap.cut::before{background:var(--brand);width:3px;top:4px;bottom:4px}
-.sp-gap.cut:hover{color:var(--danger,#e5484d)}
-.sp-gap.cut:hover::before{background:var(--danger,#e5484d)}
+/* ---------- Split editor: proportional ribbon + one scrollable page strip ---------- */
+/* Each ribbon band grows in proportion to its page count, so the bar reads as a scale map
+   of the document. min-width keeps a 2-page part wide enough to still show its label
+   rather than collapsing to a sliver. */
+.split-ribbon{display:flex;gap:3px;margin:2px 0 12px;height:34px;user-select:none}
+.ribbon-band{position:relative;display:flex;flex-direction:column;justify-content:center;
+  min-width:54px;padding:0 8px;border-radius:7px;cursor:pointer;overflow:hidden;
+  background:var(--grp);color:#fff;border:2px solid transparent;transition:filter .12s ease}
+.ribbon-band:hover{filter:brightness(1.08)}
+.ribbon-band.active{border-color:var(--text);box-shadow:0 0 0 2px rgba(20,25,45,.12)}
+.ribbon-name{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;line-height:1.15}
+.ribbon-count{font-size:9.5px;opacity:.85;font-family:var(--font-mono);line-height:1.15}
+
+/* One continuous horizontal strip covering every page. */
+.ed-wrap{position:relative;overflow-x:auto;overflow-y:hidden;padding:14px 0 16px;
+  border:1px solid var(--stroke);border-radius:10px;background:var(--panel-soft);
+  scrollbar-width:thin}
+.ed-wrap::-webkit-scrollbar{height:8px}
+.ed-wrap::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:4px}
+.ed-strip{display:flex;align-items:flex-start;padding:0 12px;width:max-content}
+.ed-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;
+  flex:none;padding:5px 4px 4px;border-radius:7px;background:#fff;
+  border-top:4px solid var(--grp);box-shadow:0 1px 4px rgba(20,25,45,.15)}
+.ed-canvas{display:block;background:#fff;border-radius:2px}
+.ed-num{font-size:11px;color:var(--text-soft);font-family:var(--font-mono);line-height:1}
+
+/* Gaps between pages. An empty gap is a faint target for adding a cut; a gap holding a
+   boundary shows a handle. Only the ACTIVE boundary is draggable, which keeps a strip with
+   many boundaries calm to look at. */
+.ed-gap{position:relative;flex:none;width:26px;align-self:stretch;cursor:pointer;
+  display:grid;place-items:center;background:transparent;border:none;padding:0}
+.ed-gap::before{content:"";position:absolute;top:8px;bottom:8px;width:2px;border-radius:2px;
+  background:transparent;transition:background .12s ease}
+.ed-gap:hover::before{background:var(--brand-weak)}
+.ed-gap .ed-plus{opacity:0;font-size:13px;color:var(--brand);font-weight:700;line-height:1;
+  position:relative;z-index:1;transition:opacity .12s ease}
+.ed-gap:hover .ed-plus{opacity:1}
+.ed-gap.is-cut .ed-plus{display:none}
+.ed-gap.is-cut.inactive::before{background:var(--text-soft);opacity:.55}
+.ed-gap.is-cut.active::before{background:var(--brand);width:3px}
+.ed-handle{position:absolute;top:-7px;width:17px;height:17px;border-radius:50%;
+  background:var(--brand);border:2px solid #fff;box-shadow:0 1px 4px rgba(20,25,45,.3);
+  cursor:grab;z-index:3;display:none}
+.ed-gap.is-cut.active .ed-handle{display:block}
+.ed-gap.is-cut.active .ed-handle:active{cursor:grabbing}
+/* moved directly during a drag, so nothing re-renders while the pointer is down */
+.ed-ghost{position:absolute;top:6px;bottom:6px;width:3px;background:var(--brand);
+  border-radius:2px;pointer-events:none;z-index:5;box-shadow:0 0 0 3px rgba(74,58,217,.18)}
+.ed-ghost[hidden]{display:none}
 .range-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
   background:var(--panel-soft);border:1px solid var(--stroke);border-left:4px solid var(--grp,#4a3ad9)}
 .range-row .dot{display:none}
@@ -450,7 +476,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
   box-shadow:var(--shadow-pop);animation:pageIn .2s ease both}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;
   border-bottom:1px solid var(--stroke)}
-.sheet-head h2{margin:0;font-size:18px;letter-spacing:-.02em}
+.sheet-head h2{margin:0;font-size:18px;letter-spacing:-.02em;white-space:nowrap;flex:none}
 .iconbtn{width:32px;height:32px;border:none;background:var(--panel-soft);border-radius:8px;
   cursor:pointer;display:grid;place-items:center;color:var(--text-soft)}
 .iconbtn:hover{background:var(--stroke);color:var(--text)}
@@ -662,6 +688,37 @@ input[type=range]{accent-color:var(--brand);width:110px}
 .part-range{font-size:11.5px;color:var(--text-soft);font-family:var(--font-mono);
   white-space:nowrap;flex:none}
 .part-count{font-size:11px;color:var(--text-soft);white-space:nowrap;flex:none;min-width:58px;text-align:right}
+
+
+/* ---------- Split modal: tightened chrome ----------
+   Everything that isn't the document itself got smaller or moved, so the page strip can be
+   large enough to actually recognise pages by eye. */
+.split-toolrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 12px}
+.split-toolrow .spacer{flex:1}
+.split-toolrow .preset-grp{display:flex;align-items:center;gap:6px;font-size:12.5px;
+  color:var(--text-soft);white-space:nowrap}
+.split-body{padding:16px 22px 8px}
+
+/* Extract is a secondary path - collapsed by default rather than occupying the top. */
+details.extract-block{margin-top:14px;border-top:1px solid var(--stroke);padding-top:10px}
+details.extract-block summary{font-size:12.5px;color:var(--text-soft);cursor:pointer;
+  list-style:none;padding:3px 0;user-select:none}
+details.extract-block summary::-webkit-details-marker{display:none}
+details.extract-block summary::before{content:"\25B8";color:var(--text-soft);
+  display:inline-block;width:14px}
+details.extract-block[open] summary::before{content:"\25BE"}
+details.extract-block summary:hover{color:var(--text)}
+details.extract-block .extract-row{margin-top:9px}
+
+/* Parts list: denser, and the header row is gone (the ribbon already says what's what). */
+.parts-list{margin-top:14px;max-height:19vh}
+.part-row{padding:5px 9px;gap:8px}
+.part-name{font-size:12.5px;padding:4px 7px}
+.part-range,.part-count{font-size:11px}
+
+/* the filename preview must truncate, not push the row wider than the sheet */
+.name-row{padding:8px 22px 0}
+.name-hint{max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 </style>
 </head>
@@ -999,33 +1056,30 @@ input[type=range]{accent-color:var(--brand);width:110px}
       </button>
     </div>
     <div class="split-body">
-      <div class="extract-block">
-        <div class="lbl">Extract specific pages</div>
-        <div class="extract-row">
-          <input id="extractInput" type="text" class="extract-input" placeholder="e.g. 1,2,4-8,9,20" autocomplete="off" spellcheck="false">
-          <button class="btn primary sm" id="extractGo" disabled>Extract as one PDF</button>
-        </div>
-        <div class="extract-status" id="extractStatus">Comma-separated page numbers and ranges — only those pages, in that order, go into the download.</div>
-      </div>
-
-      <div class="split-or"><span>or split into multiple files</span></div>
-
-      <p class="split-hint">Click the scissors between any two pages to cut there. Each colour becomes its own PDF — name them below.</p>
-      <div class="split-presets">
-        <span class="lbl">Quick:</span>
+      <div class="split-toolrow">
         <span class="preset-grp">every <input id="splitEveryN" class="mini-input" inputmode="numeric" value="1"> pages <button class="btn ghost sm" id="splitEveryApply">Apply</button></span>
-        <span class="preset-grp"><input id="splitEqualN" class="mini-input" inputmode="numeric" value="2"> equal parts <button class="btn ghost sm" id="splitEqualApply">Apply</button></span>
-        <button class="btn ghost sm" id="splitClear">Reset to 1 file</button>
-      </div>
-      <div class="split-pages" id="splitPages"></div>
-      <div class="parts-head">
-        <span>Parts</span>
+        <span class="preset-grp">into <input id="splitEqualN" class="mini-input" inputmode="numeric" value="2"> equal parts <button class="btn ghost sm" id="splitEqualApply">Apply</button></span>
+        <div class="spacer"></div>
         <button class="btn ghost sm" id="splitBundlePreset" title="Carve the trailing documents by their known lengths, counting back from the last page">Mortgage bundle</button>
+        <button class="btn ghost sm" id="splitClear">Reset</button>
+      </div>
+      <div class="split-ribbon" id="splitRibbon"></div>
+      <div class="ed-wrap" id="splitStripWrap">
+        <div class="ed-strip" id="splitStrip"></div>
+        <div class="ed-ghost" id="splitGhost" hidden></div>
       </div>
       <div class="parts-list" id="splitParts"></div>
+      <details class="extract-block">
+        <summary>Extract specific pages into one PDF instead</summary>
+        <div class="extract-row">
+          <input id="extractInput" type="text" class="extract-input" placeholder="e.g. 1,2,4-8,9,20" autocomplete="off" spellcheck="false">
+          <button class="btn primary sm" id="extractGo" disabled>Extract</button>
+        </div>
+        <div class="extract-status" id="extractStatus">Comma-separated pages and ranges — only those, in that order.</div>
+      </details>
     </div>
     <div class="name-row">
-      <label class="lbl" for="splitBaseName">Name the parts</label>
+      <label class="lbl" for="splitBaseName">Save as</label>
       <input id="splitBaseName" class="name-input" spellcheck="false" autocomplete="off">
       <span class="name-hint" id="splitNameHint"></span>
     </div>
@@ -4480,7 +4534,7 @@ input[type=range]{accent-color:var(--brand);width:110px}
 
   let splitNames = {};   // start page -> name the person typed
 
-  function renderSplit() { renderSplitPages(); renderSplitParts(); renderSplitSummary(); }
+  function renderSplit() { renderSplitRibbon(); renderSplitStrip(); renderSplitParts(); renderSplitSummary(); }
 
   function partName(groups, k) {
     const start = groups[k][0];
@@ -4552,84 +4606,199 @@ input[type=range]{accent-color:var(--brand);width:110px}
     toast("Trailing documents carved by length. Add cuts for the Note, Mortgage and TC \u2014 those can't be derived from the end.");
   }
 
-  // The list scales with the number of PARTS you want, not the number of pages — so it
-  // stays a short, glanceable list whether the document is 5 pages or 5,000.
-  const SCISSORS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>';
+  let splitActive = 0;          // which boundary is the grabbable one
   let splitThumbIo = null;
 
-  // Visual split picker: every page is shown as a real thumbnail, colour-coded by which
-  // part it lands in, with a clickable scissors in each gap. Cutting is direct — you
-  // click between the two pages you want separated, instead of doing arithmetic in a
-  // list of page-number boxes and hoping you got the boundary right.
-  function renderSplitPages() {
-    const host = $("splitPages");
-    if (splitThumbIo) { splitThumbIo.disconnect(); splitThumbIo = null; }
+  // Sorted boundary positions. A cut stored as `i` means "split after page i", so
+  // boundary d starts the part beginning at page cuts[d] + 1.
+  function sortedCuts() { return Array.from(splitCuts).sort((a, b) => a - b); }
+
+  // Proportional map of the document: each band grows with its page count, so the ribbon
+  // reads as a scale drawing of how the file divides up. Clicking a band makes the
+  // boundary that starts it the active (draggable) one.
+  function renderSplitRibbon() {
+    const host = $("splitRibbon");
+    if (!host) return;
     host.innerHTML = "";
+    const groups = splitGroups();
+    groups.forEach((g, k) => {
+      const n = g[1] - g[0] + 1;
+      const band = document.createElement("div");
+      band.className = "ribbon-band" + (k === Math.min(splitActive + 1, groups.length - 1) && groups.length > 1 ? " active" : "");
+      band.style.setProperty("--grp", SPLIT_COLORS[k % SPLIT_COLORS.length]);
+      band.style.flexGrow = String(n);
+      band.style.flexBasis = "0";
+      band.title = partName(groups, k) + " \u2014 pages " + (g[0] + 1) + "\u2013" + (g[1] + 1);
+      const nm = document.createElement("div");
+      nm.className = "ribbon-name"; nm.textContent = partName(groups, k);
+      const ct = document.createElement("div");
+      ct.className = "ribbon-count"; ct.textContent = n + "p";
+      band.append(nm, ct);
+      band.onclick = () => {
+        if (k > 0) { splitActive = k - 1; renderSplitRibbon(); markActiveHandle(); }
+      };
+      host.appendChild(band);
+    });
+  }
+
+  // Only the active handle's classes change when the selection moves, so switching
+  // boundaries never rebuilds the strip (which would drop scroll position and any
+  // thumbnails still loading).
+  function markActiveHandle() {
+    const strip = $("splitStrip");
+    if (!strip) return;
+    strip.querySelectorAll(".ed-gap.is-cut").forEach((el) => {
+      const d = +el.dataset.boundary;
+      el.classList.toggle("active", d === splitActive);
+      el.classList.toggle("inactive", d !== splitActive);
+    });
+  }
+
+  function renderSplitStrip() {
+    const strip = $("splitStrip");
+    const wrap = $("splitStripWrap");
+    if (!strip) return;
+    if (splitThumbIo) { splitThumbIo.disconnect(); splitThumbIo = null; }
+    strip.innerHTML = "";
     const total = S.pages.length;
     const groups = splitGroups();
     const partOf = new Array(total);
     groups.forEach((g, k) => { for (let i = g[0]; i <= g[1]; i++) partOf[i] = k; });
+    const cuts = sortedCuts();
+    if (splitActive >= cuts.length) splitActive = Math.max(0, cuts.length - 1);
 
+    // Pre-load a little beyond the viewport so scrolling feels instant rather than
+    // revealing blank tiles.
     splitThumbIo = new IntersectionObserver((entries) => {
       for (const e of entries) if (e.isIntersecting) renderSplitThumb(+e.target.dataset.idx);
-    }, { root: host, rootMargin: "400px 0px" });
+    }, { root: wrap, rootMargin: "340px" });
 
     for (let i = 0; i < total; i++) {
-      const rec = S.pages[i];
-      const k = partOf[i];
-      const color = SPLIT_COLORS[k % SPLIT_COLORS.length];
-
-      const card = document.createElement("div");
-      card.className = "sp-card";
-      card.dataset.idx = i;
-      card.style.setProperty("--grp", color);
-
-      // A badge on the first page of each part, so the parts read at a glance
-      if (i === groups[k][0]) {
-        const badge = document.createElement("div");
-        badge.className = "sp-badge";
-        badge.textContent = "Part " + (k + 1);
-        card.appendChild(badge);
+      if (i > 0) {
+        const cutIdx = cuts.indexOf(i - 1);          // is there a boundary before this page?
+        const gap = document.createElement("div");
+        gap.dataset.gap = String(i - 1);
+        if (cutIdx !== -1) {
+          gap.dataset.boundary = String(cutIdx);
+          gap.className = "ed-gap is-cut " + (cutIdx === splitActive ? "active" : "inactive");
+          gap.title = "Boundary \u2014 drag to move it, click to remove";
+          const h = document.createElement("div");
+          h.className = "ed-handle";
+          gap.appendChild(h);
+          gap.addEventListener("pointerdown", (e) => beginBoundaryDrag(e, cutIdx, gap));
+        } else {
+          gap.className = "ed-gap";
+          gap.title = "Split here \u2014 page " + (i + 1) + " starts a new file";
+          const plus = document.createElement("span");
+          plus.className = "ed-plus"; plus.textContent = "+";
+          gap.appendChild(plus);
+          gap.onclick = () => {
+            splitCuts.add(i - 1);
+            splitActive = sortedCuts().indexOf(i - 1);
+            renderSplit();
+          };
+        }
+        strip.appendChild(gap);
       }
 
+      const rec = S.pages[i];
+      const tile = document.createElement("div");
+      tile.className = "ed-tile";
+      tile.dataset.idx = String(i);
+      tile.style.setProperty("--grp", SPLIT_COLORS[partOf[i] % SPLIT_COLORS.length]);
       const canvas = document.createElement("canvas");
-      canvas.className = "sp-canvas";
-      const W = 66;
+      canvas.className = "ed-canvas";
+      const W = 104;
       const aspect = (rec.hPts || 792) / (rec.wPts || 612);
       canvas.style.width = W + "px";
-      canvas.style.height = Math.round(W * aspect) + "px";   // sized up front so nothing reflows as thumbnails fill in
-
+      canvas.style.height = Math.round(W * aspect) + "px";   // sized up front so nothing reflows
       const num = document.createElement("div");
-      num.className = "sp-num";
-      num.textContent = i + 1;
-
-      card.append(canvas, num);
+      num.className = "ed-num"; num.textContent = String(i + 1);
+      tile.append(canvas, num);
       rec.splitCanvas = canvas; rec.splitRendered = false;
-      host.appendChild(card);
-      splitThumbIo.observe(card);
-
-      if (i < total - 1) {
-        const cut = splitCuts.has(i);
-        const gap = document.createElement("button");
-        gap.className = "sp-gap" + (cut ? " cut" : "");
-        gap.title = cut
-          ? "Cut here — click to remove this split and rejoin these pages"
-          : "Click to split here (page " + (i + 2) + " starts a new file)";
-        gap.innerHTML = SCISSORS_SVG;
-        gap.onclick = () => {
-          if (splitCuts.has(i)) splitCuts.delete(i); else splitCuts.add(i);
-          renderSplit();
-        };
-        host.appendChild(gap);
-      }
+      strip.appendChild(tile);
+      splitThumbIo.observe(tile);
     }
+  }
+
+  // Dragging a boundary. Deliberately no re-render while the pointer is down: a ghost line
+  // is moved directly and state only changes on release, because re-rendering mid-drag
+  // would destroy the element being dragged. Auto-scrolls when the pointer nears either
+  // edge so you can reach pages that aren't currently on screen.
+  function beginBoundaryDrag(e, d, gapEl) {
+    if (e.button !== 0) return;
+    const wrap = $("splitStripWrap");
+    const ghost = $("splitGhost");
+    const cuts = sortedCuts();
+    const total = S.pages.length;
+    // Bounded by the NEIGHBOURING boundaries, which is what makes it structurally
+    // impossible to drag one part past another or leave a part with no pages.
+    const lo = d > 0 ? cuts[d - 1] + 1 : 0;
+    const hi = d < cuts.length - 1 ? cuts[d + 1] - 1 : total - 2;
+
+    let moved = false, target = cuts[d], auto = 0;
+    const startX = e.clientX;
+
+    const nearestGap = (clientX) => {
+      let best = target, bestDist = Infinity;
+      $("splitStrip").querySelectorAll(".ed-tile").forEach((t) => {
+        const idx = +t.dataset.idx;
+        const cand = idx - 1;                       // a cut before this tile
+        if (cand < lo || cand > hi) return;
+        const r = t.getBoundingClientRect();
+        const dist = Math.abs(clientX - r.left);
+        if (dist < bestDist) { bestDist = dist; best = cand; }
+      });
+      return best;
+    };
+
+    const paint = (clientX) => {
+      target = nearestGap(clientX);
+      const wr = wrap.getBoundingClientRect();
+      ghost.hidden = false;
+      ghost.style.left = (clientX - wr.left + wrap.scrollLeft) + "px";
+    };
+
+    const onMove = (ev) => {
+      if (!moved && Math.abs(ev.clientX - startX) < 4) return;
+      moved = true;
+      ev.preventDefault();
+      const wr = wrap.getBoundingClientRect();
+      const x = ev.clientX - wr.left;
+      clearInterval(auto);
+      if (x < 46) auto = setInterval(() => { wrap.scrollLeft -= 12; paint(ev.clientX); }, 16);
+      else if (x > wr.width - 46) auto = setInterval(() => { wrap.scrollLeft += 12; paint(ev.clientX); }, 16);
+      paint(ev.clientX);
+    };
+
+    const onUp = () => {
+      clearInterval(auto);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      ghost.hidden = true;
+      if (!moved) {
+        // A click, not a drag: activate it, or remove it if it was already active.
+        if (splitActive === d) { splitCuts.delete(cuts[d]); renderSplit(); }
+        else { splitActive = d; renderSplitRibbon(); markActiveHandle(); }
+        return;
+      }
+      if (target !== cuts[d]) {
+        splitCuts.delete(cuts[d]);
+        splitCuts.add(target);
+        splitActive = sortedCuts().indexOf(target);
+      }
+      renderSplit();
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   function renderSplitThumb(idx) {
     const rec = S.pages[idx];
     if (!rec || rec.splitRendered || !rec.splitCanvas) return;
     rec.splitRendered = true;
-    const W = 66;
+    const W = 104;
     const scale = W / (rec.wPts || 612);
     const vp = rec.page.getViewport({ scale, rotation: (rec.rot + rec.userRot + 360) % 360 });
     const canvas = rec.splitCanvas;
