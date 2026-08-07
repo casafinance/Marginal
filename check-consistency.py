@@ -65,6 +65,18 @@ for m in re.finditer(r"#\[tauri::command\]\s*\n\s*(async\s+)?fn\s+(\w+)", lib):
             % (fname, ", ".join(hits))
         )
 
+# Tauri hard rule: an async command that borrows State<'_, T> must return Result<_, _>,
+# because the generated future needs a 'static bound that a bare Option/other return type
+# can't satisfy. This is a real compile error (E0277/E0597) that only surfaces in CI, since
+# there's no Rust toolchain available for local verification here.
+for m in re.finditer(r"async fn (\w+)\(([^)]*)\)\s*->\s*([^\{]+)\{", lib):
+    name, args, ret = m.group(1), m.group(2), m.group(3).strip()
+    if "State<" in args and not re.match(r"Result\s*<", ret):
+        problems.append(
+            "async command '%s' borrows State but returns '%s', not Result -- "
+            "Tauri requires Result here or this fails to compile" % (name, ret)
+        )
+
 handler = re.search(r"generate_handler!\[(.*?)\]", lib, re.S)
 registered = {c.strip() for c in handler.group(1).split(",") if c.strip()} if handler else set()
 invoked = set(re.findall(r'invoke\(\s*"([a-z_]+)"', ui))
